@@ -7,20 +7,23 @@
       @dragover="handleDragOver"
       @dragleave="handleDragLeave"
       @drop="handleDrop"
-      @click.self="handleSelectClick"
     >
       <!-- 图标展示区域 -->
-      <div class="icons-container" v-if="currentFiles.length > 0">
-        <el-row :gutter="10">
+      <div 
+        class="icons-container" 
+        v-if="currentFiles.length > 0"
+      >
+        <div class="row-container">
           <FileIcon 
             v-for="file in currentFiles" 
             :key="file.id"
             :file="file"
+            class="file-icon-item"
             @open="handleFileOpen"
             @delete="handleFileDelete"
             @contextmenu="handleFileContextMenu"
           />
-        </el-row>
+        </div>
       </div>
       <!-- 隐藏的文件输入 -->
       <input 
@@ -50,15 +53,8 @@ const props = defineProps({
 const emit = defineEmits(['fileAdd', 'fileOpen', 'fileDelete', 'contextmenu'])
 
 // 响应式数据
-const fileInput = ref(null)
 const isDragOver = ref(false)
 
-// 方法：处理文件选择点击
-const handleSelectClick = () => {
-  if (fileInput.value) {
-    fileInput.value.click()
-  }
-}
 
 // 方法：处理文件选择
 const handleFileSelect = async (e) => {
@@ -109,12 +105,23 @@ const handleFileContextMenu = (data) => {
 </script>
 
 <style scoped>
+.drop-zone-main {
+  padding: 0; /* 移除外层 padding */
+  height: 100%; /* 继承父容器高度 */
+  overflow: hidden;
+}
 
-
+/* .row-container{
+  margin: 2px;
+} */
+.file-icon-item{
+  margin: 2px;
+}
 /* 拖拽区域样式 */
 .drop-zone {
   height: 100%;
   transition: all 0.3s ease;
+  padding: 0; /* 确保无内边距 */
 }
 
 .drop-zone.dragover {
@@ -127,7 +134,18 @@ const handleFileContextMenu = (data) => {
 .icons-container {
   height: 100%;
   overflow-y: auto;
-  padding: 10px;
+  padding: 10px; /* 减小内边距 */
+}
+
+.row-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0; /* 移除 flex gap */
+}
+
+/* 图标项样式覆盖 */
+.file-icon-item {
+  margin: 0 4px 16px 4px; /* 上 右 下 左 */
 }
 
 /* 滚动条美化 */

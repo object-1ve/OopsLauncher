@@ -77,12 +77,13 @@ const handleDelete = () => {
 }
 
 .context-menu-item {
-  padding: 8px 15px;
+  padding: 4px 12px; /* 减小内边距 */
   cursor: pointer;
   transition: background-color 0.2s ease;
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 13px; /* 稍微减小字号 */
 }
 
 .context-menu-item:hover {

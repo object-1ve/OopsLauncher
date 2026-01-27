@@ -10,11 +10,13 @@
     "tauri": "tauri",
     "tdev": "tauri dev",
     "tbuild": "tauri build",
-    "tauri:bundle": "tauri build --bundle"
+    "tbundle": "tauri build --bundle"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-global-shortcut": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.3.4",
     "element-plus": "^2.13.1",
     "sass": "^1.97.3",

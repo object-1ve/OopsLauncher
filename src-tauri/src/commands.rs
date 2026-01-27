@@ -272,32 +272,41 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     
     // 清空现有数据
+    // 注意：如果我们只想覆盖特定category，可以加 WHERE category = ? 条件
+    // 但目前的逻辑是前端传入所有数据，所以全量覆盖是合理的
+    // 为了支持部分更新，我们可以在这里做优化，但当前保持全量更新简单可靠
     tx.execute("DELETE FROM files", []).map_err(|e| e.to_string())?;
     
     // 插入新数据
-        for mut file in files {
-            file.path = to_abs_path(&file.path)?;
-            
-            // 获取分类信息，如果没有则默认为main
-            let category = match file.category.as_ref() {
-                Some(cat) => cat,
-                None => "main"
-            };
-            
-            tx.execute(
-                "INSERT INTO files (id, name, path, size, type, icon, category) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [
-                    &file.id,
-                    &file.name,
-                    &file.path,
-                    &file.size.to_string(),
-                    &file.r#type,
-                    &file.icon,
-                    category
-                ]
-            ).map_err(|e| e.to_string())?;
-        }
+    let mut stmt = tx.prepare(
+        "INSERT INTO files (id, name, path, size, type, icon, category) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).map_err(|e| e.to_string())?;
+
+    for mut file in files {
+        file.path = to_abs_path(&file.path)?;
+        
+        // 获取分类信息，如果没有则默认为main
+        let category = match file.category.as_ref() {
+            Some(cat) => cat,
+            None => "main"
+        };
+        
+        stmt.execute(
+            [
+                &file.id,
+                &file.name,
+                &file.path,
+                &file.size.to_string(),
+                &file.r#type,
+                &file.icon,
+                category
+            ]
+        ).map_err(|e| e.to_string())?;
+    }
     
+    // 释放 statement
+    drop(stmt);
+
     // 提交事务
     tx.commit().map_err(|e| e.to_string())?;
     

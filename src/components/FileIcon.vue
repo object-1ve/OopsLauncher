@@ -1,8 +1,5 @@
 <template>
-  <el-col 
-    :xs="12" :sm="8" :md="6" :lg="4" :xl="3"
-    class="file-icon-col"
-  >
+  <div class="file-icon-wrapper">
     <div 
       class="icon-item"
       @click="handleFileClick"
@@ -29,11 +26,10 @@
         {{ file.name }}
       </div>
     </div>
-  </el-col>
+  </div>
 </template>
 
 <script setup>
-import { Close } from '@element-plus/icons-vue'
 
 // Props
 const props = defineProps({
@@ -51,11 +47,6 @@ const handleFileClick = () => {
   emit('open', props.file)
 }
 
-// 方法：处理删除点击
-const handleDeleteClick = () => {
-  emit('delete', props.file.id)
-}
-
 // 方法：处理右键菜单
 const handleContextMenu = (e) => {
   e.preventDefault()
@@ -64,8 +55,8 @@ const handleContextMenu = (e) => {
 </script>
 
 <style scoped>
-.file-icon-col {
-  margin-bottom: 16px;
+.file-icon-wrapper {
+  /* 移除 margin-bottom，布局由父级控制 */
 }
 
 .icon-item {
@@ -74,15 +65,16 @@ const handleContextMenu = (e) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 16px 8px;
   border-radius: 8px;
-
+  width: 80px;  /* 缩小宽度 */
+  height: 100px; /* 缩小高度 */
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .icon-item:hover {
   background-color: rgba(0, 0, 0, 0.05);
+  /* 移除 width/height 的重设，保持一致 */
 }
 
 .icon-wrapper {
@@ -90,14 +82,16 @@ const handleContextMenu = (e) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 50px;
+  height: 50px;
 }
 
 .file-icon-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  background-color: transparent; /* 确保背景透明 */
+  mix-blend-mode: multiply; /* 可选：如果是白色背景的jpg，可以尝试混合 */
 }
 
 .file-icon-emoji {
@@ -109,11 +103,17 @@ const handleContextMenu = (e) => {
   font-size: 13px;
   color: #555;
   text-align: center;
-  width: 100%;
+  width: 100%;  padding: 0 4px;
+  
+  /* 多行显示逻辑 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 限制为2行 */
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 4px;
+  white-space: normal; /* 允许换行 */
+  line-height: 1.4; /* 优化行高 */
+  height: 36px; /* 固定高度，避免跳动 (13px * 1.4 * 2 ≈ 36.4px) */
 }
 
 .icon-item:hover {

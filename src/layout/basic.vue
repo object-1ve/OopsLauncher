@@ -6,9 +6,7 @@ const { currentCategory, switchCategory } = useFiles();
 </script>
 
 <template>
-    <div class="title-bar-container">
-        <TitleBar />
-    </div>
+    <TitleBar />
     <div class="basic-layout">
         <Sidebar 
             class="page-side" 
@@ -34,7 +32,5 @@ const { currentCategory, switchCategory } = useFiles();
     overflow: hidden;
     position: relative;
 }
-.title-bar-container {
-    height: 32px;
-}
+
 </style>

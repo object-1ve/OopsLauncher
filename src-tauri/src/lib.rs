@@ -10,6 +10,9 @@ pub fn run() {
         commands::open_path
     ])
     .setup(|app| {
+      app.handle().plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
+      app.handle().plugin(tauri_plugin_clipboard_manager::init())?;
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
