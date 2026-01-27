@@ -1,0 +1,29 @@
+{
+  "name": "oopslauncher",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tdev": "tauri dev",
+    "tbuild": "tauri build",
+    "tauri:bundle": "tauri build --bundle"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.3.4",
+    "element-plus": "^2.13.1",
+    "sass": "^1.97.3",
+    "vue": "^3.4.0",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vite": "^5.0.0"
+  }
+}
