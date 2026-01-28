@@ -23,8 +23,10 @@
     "@tauri-apps/plugin-shell": "^2.3.0",
     "element-plus": "^2.13.1",
     "sass": "^1.97.3",
+    "sortablejs": "^1.15.6",
     "vue": "^3.4.0",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.3.0",

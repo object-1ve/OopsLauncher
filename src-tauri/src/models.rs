@@ -19,5 +19,8 @@ pub struct FileInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Category {
     pub id: String,
+    pub parent_id: Option<String>,
     pub name: String,
+    pub icon: Option<String>,
+    pub sort_order: i32,
 }

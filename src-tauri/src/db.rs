@@ -43,11 +43,32 @@ pub fn init_database(conn: &Connection) -> Result<(), String> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS categories (
             id TEXT PRIMARY KEY,
-            name TEXT NOT NULL
+            parent_id TEXT,
+            name TEXT NOT NULL,
+            icon TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0
         )",
         []
     ).map_err(|e| e.to_string())?;
     
+    // 检查并同步分类表结构
+    let mut stmt = conn.prepare("PRAGMA table_info(categories)").map_err(|e| e.to_string())?;
+    let cat_columns: Vec<String> = stmt.query_map([], |row| {
+        Ok(row.get(1)?)
+    }).map_err(|e| e.to_string())?
+    .filter_map(|result| result.ok())
+    .collect();
+
+    if !cat_columns.contains(&"parent_id".to_string()) {
+        conn.execute("ALTER TABLE categories ADD COLUMN parent_id TEXT", []).map_err(|e| e.to_string())?;
+    }
+    if !cat_columns.contains(&"icon".to_string()) {
+        conn.execute("ALTER TABLE categories ADD COLUMN icon TEXT", []).map_err(|e| e.to_string())?;
+    }
+    if !cat_columns.contains(&"sort_order".to_string()) {
+        conn.execute("ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []).map_err(|e| e.to_string())?;
+    }
+
     // 检查并添加category列（如果不存在）
     // SQLite不支持ALTER TABLE中的IF NOT EXISTS，所以需要先检查列是否存在
     let mut stmt = conn.prepare("PRAGMA table_info(files)").map_err(|e| e.to_string())?;

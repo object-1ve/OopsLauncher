@@ -1,11 +1,9 @@
 [target.x86_64-pc-windows-msvc]
 rustflags = [
     "-C", "target-feature=+crt-static",
-    "-C", "link-arg=/SUBSYSTEM:WINDOWS,5.01"
 ]
 
 [target.i686-pc-windows-msvc]
 rustflags = [
     "-C", "target-feature=+crt-static",
-    "-C", "link-arg=/SUBSYSTEM:WINDOWS,5.01"
 ]

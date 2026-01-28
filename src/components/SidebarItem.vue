@@ -1,9 +1,11 @@
 <template>
-  <div class="sidebar-item-container">
+  <div 
+    class="sidebar-item-container"
+  >
     <div
       class="menu-item"
       :class="{
-        active: currentCategory === item.name,
+        active: currentCategory === item.id,
         'is-editing': isEditing,
       }"
       @click="handleSelect"
@@ -46,7 +48,7 @@ const editInputRef = ref(null);
 
 const handleSelect = () => {
   if (!isEditing.value) {
-    emit("categoryChange", props.item.name);
+    emit("categoryChange", props.item.id);
   }
 };
 

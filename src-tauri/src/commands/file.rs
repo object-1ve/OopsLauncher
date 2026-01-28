@@ -5,10 +5,12 @@ use crate::models::FileInfo;
 use crate::db::get_db_connection;
 use crate::utils::{to_abs_path, resolve_shortcut};
 use crate::icon::get_file_icon_base64;
+use rusqlite::params;
 
 // 保存文件列表到SQLite数据库
 #[tauri::command]
 pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(), String> {
+    println!("Saving {} files to database...", files.len());
     let mut conn = get_db_connection(&app)?;
     
     // 开始事务
@@ -23,31 +25,41 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
     ).map_err(|e| e.to_string())?;
 
     for mut file in files {
-        file.path = to_abs_path(&file.path)?;
-        
-        // 获取分类信息，如果没有则默认为main
-        let category = match file.category.as_ref() {
-            Some(cat) => cat,
-            None => "main"
-        };
-        
-        // 获取打开次数，如果没有则默认为0
-        let open_count = file.open_count.unwrap_or(0).to_string();
-        
-        stmt.execute(
-            [
-                &file.id,
-                &file.name,
-                &file.display_name,
-                &file.path,
-                &file.size.to_string(),
-                &file.r#type,
-                &file.icon,
-                &file.content.unwrap_or_default(),
-                category,
-                &open_count
-            ]
-        ).map_err(|e| e.to_string())?;
+        // 尝试处理每个文件，跳过失败的文件
+        match to_abs_path(&file.path) {
+            Ok(abs_path) => {
+                file.path = abs_path;
+                
+                // 获取分类 ID，如果没有则默认为 main
+                let category_id = match file.category.as_ref() {
+                    Some(id) => id,
+                    None => "main"
+                };
+                
+                // 尝试执行插入
+                if let Err(e) = stmt.execute(
+                    params![
+                        &file.id,
+                        &file.name,
+                        &file.display_name,
+                        &file.path,
+                        file.size as i64,
+                        &file.r#type,
+                        &file.icon,
+                        &file.content,
+                        category_id,
+                        file.open_count.unwrap_or(0) as i64
+                    ]
+                ) {
+                    println!("Failed to save file {} to DB: {}", file.name, e);
+                    continue;
+                }
+            },
+            Err(e) => {
+                println!("Failed to resolve path for file {}: {}", file.name, e);
+                continue;
+            }
+        }
     }
     
     // 释放 statement
@@ -62,9 +74,14 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
 // 从SQLite数据库读取文件列表
 #[tauri::command]
 pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String> {
+    println!("Loading files from database...");
     let conn = get_db_connection(&app)?;
     
-    let mut stmt = conn.prepare("SELECT id, name, display_name, path, size, type, icon, content, category, open_count FROM files").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, name, display_name, path, size, type, icon, content, category, open_count FROM files ORDER BY open_count DESC")
+        .map_err(|e| {
+            println!("Failed to prepare select statement: {}", e);
+            e.to_string()
+        })?;
     
     let files_iter = stmt.query_map([], |row| {
         Ok(FileInfo {
@@ -77,15 +94,22 @@ pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String
             icon: row.get(6)?,
             content: row.get(7)?,
             category: Some(row.get(8)?),
-            open_count: row.get(9)?
+            open_count: Some(row.get::<_, i64>(9)? as u64)
         })
-    }).map_err(|e| e.to_string())?;
+    }).map_err(|e| {
+        println!("Failed to query files: {}", e);
+        e.to_string()
+    })?;
     
     let mut files = Vec::new();
-    for file in files_iter {
-        files.push(file.map_err(|e| e.to_string())?);
+    for file_result in files_iter {
+        match file_result {
+            Ok(file) => files.push(file),
+            Err(e) => println!("Error mapping file row: {}", e),
+        }
     }
     
+    println!("Successfully loaded {} files from database.", files.len());
     Ok(files)
 }
 

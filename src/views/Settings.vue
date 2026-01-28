@@ -240,7 +240,7 @@
             <div class="app-info">
               <img src="@/assets/icon.png" alt="logo" class="about-logo" />
               <h2 class="app-name">OopsLauncher</h2>
-              <p class="app-version">Version 0.1.0</p>
+              <p class="app-version">Version {{ appVersion }}</p>
               <p class="app-desc">一个极简、高效的 Tauri 启动器</p>
             </div>
             <div class="about-links">
@@ -266,14 +266,26 @@ import { Setting, Brush, Operation, InfoFilled, Close } from "@element-plus/icon
 import { useSettings } from "@/composables/useSettings";
 import { enable, disable } from "@tauri-apps/plugin-autostart";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { invoke } from "@tauri-apps/api/core";
 
 const { settings } = useSettings();
 const activeTab = ref("general");
 const activeCollapseNames = ref([]);
 const appWindow = getCurrentWebviewWindow();
+const appVersion = ref("");
 
 const closeWindow = async () => {
   await appWindow.close();
+};
+
+// 获取应用版本号
+const fetchAppVersion = async () => {
+  try {
+    appVersion.value = await invoke("get_app_version");
+  } catch (err) {
+    console.error("Failed to fetch app version:", err);
+    appVersion.value = "Unknown";
+  }
 };
 
 // 快捷键关闭 (ESC)
@@ -285,6 +297,7 @@ const handleGlobalKeyDown = (e) => {
 
 onMounted(() => {
   window.addEventListener("keydown", handleGlobalKeyDown);
+  fetchAppVersion();
 });
 
 onUnmounted(() => {

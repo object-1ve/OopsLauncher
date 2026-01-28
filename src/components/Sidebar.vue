@@ -1,28 +1,37 @@
 <template>
   <div class="sidebar-aside" @contextmenu.prevent="handleSidebarContextMenu">
     <div class="sidebar-menu">
-      <div class="menu-items">
-        <SidebarItem
-          v-for="item in allCategories"
-          :key="item.id"
-          :item="item"
-          :currentCategory="currentCategory"
-          @categoryChange="handleMenuSelect"
-          @itemContextMenu="handleItemContextMenu"
-        />
-
-        <!-- 添加分类输入框 -->
-        <div v-if="showAddCategoryInput" class="add-category-input">
-          <el-input
-            v-model="newCategoryName"
-            placeholder="分类名称"
-            size="small"
-            @keyup.enter="handleAddCategory"
-            @blur="handleInputBlur"
-            ref="categoryInput"
+      <draggable
+        v-model="allCategories"
+        item-key="id"
+        class="menu-items"
+        animation="150"
+        ghost-class="sortable-ghost"
+        drag-class="sortable-drag"
+        @end="handleDragEnd"
+      >
+        <template #item="{ element: item }">
+          <SidebarItem
+            :item="item"
+            :currentCategory="currentCategory"
+            @categoryChange="handleMenuSelect"
+            @itemContextMenu="handleItemContextMenu"
           />
-        </div>
-      </div>
+        </template>
+        <template #footer>
+          <!-- 添加分类输入框 -->
+          <div v-if="showAddCategoryInput" class="add-category-input">
+            <el-input
+              v-model="newCategoryName"
+              placeholder="分类名称"
+              size="small"
+              @keyup.enter="handleAddCategory"
+              @blur="handleInputBlur"
+              ref="categoryInput"
+            />
+          </div>
+        </template>
+      </draggable>
     </div>
 
     <!-- 侧边栏右键菜单 -->
@@ -39,6 +48,12 @@
           <li class="context-menu-item" @click="handleRenameFromMenu">
             <el-icon><Edit /></el-icon> 重命名
           </li>
+          <li
+            class="context-menu-item delete"
+            @click="handleDeleteFromMenu"
+          >
+            <el-icon><Delete /></el-icon> 删除
+          </li>
         </template>
         <template v-else>
           <li class="context-menu-item" @click="handleAddCategoryFromMenu">
@@ -52,10 +67,12 @@
 
 <script setup>
 import { ref, reactive, nextTick, watch, computed, onMounted, onUnmounted } from "vue";
-import { Plus, Edit, Setting } from "@element-plus/icons-vue";
+import { Plus, Edit, Setting, Delete } from "@element-plus/icons-vue";
 import { useFiles } from "@/composables/useFiles";
 import SidebarItem from "./SidebarItem.vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { ElMessageBox, ElMessage } from "element-plus";
+import draggable from "vuedraggable";
 
 // Props
 const props = defineProps({
@@ -68,7 +85,16 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(["categoryChange"]);
 
-const { allCategories, addCategory } = useFiles();
+const { allCategories, addCategory, deleteCategory, updateCategoryOrder } = useFiles();
+
+// 侧边栏元素引用
+const menuItemsRef = ref(null);
+
+const handleDragEnd = async () => {
+  // vuedraggable 已经通过 v-model 更新了 allCategories.value
+  // 我们只需要调用 updateCategoryOrder 来持久化到数据库
+  await updateCategoryOrder(allCategories.value);
+};
 
 // 右键菜单状态
 const sidebarContextMenu = ref({
@@ -124,6 +150,40 @@ const handleAddCategoryFromMenu = () => {
 const handleRenameFromMenu = () => {
   if (sidebarContextMenu.value.startRename) {
     sidebarContextMenu.value.startRename();
+  }
+  hideContextMenu();
+};
+
+// 从菜单删除
+const handleDeleteFromMenu = async () => {
+  const item = sidebarContextMenu.value.item;
+  if (!item) return;
+
+  // 检查是否是最后一个分类
+  if (allCategories.value.length <= 1) {
+    ElMessage.warning("必须保留至少一个分类");
+    hideContextMenu();
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除分类 "${item.name}" 吗？该分类下的所有文件也将被移除。`,
+      "提示",
+      {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
+    );
+
+    await deleteCategory(item.id);
+    ElMessage.success("删除成功");
+  } catch (error) {
+    if (error !== "cancel") {
+      console.error("Failed to delete category:", error);
+      ElMessage.error("删除失败");
+    }
   }
   hideContextMenu();
 };
@@ -252,6 +312,11 @@ onUnmounted(() => {
   color: #409eff;
 }
 
+.context-menu-item.delete:hover {
+  color: #f56c6c;
+  background-color: #fef0f0;
+}
+
 /* 滚动条样式 */
 .sidebar-menu::-webkit-scrollbar {
   width: 6px;
@@ -262,6 +327,18 @@ onUnmounted(() => {
 }
 .sidebar-menu::-webkit-scrollbar-track {
   background-color: transparent;
+}
+
+.sortable-ghost {
+  opacity: 0.4;
+  background-color: #f0f7ff !important;
+  border: 1px dashed #409eff;
+}
+
+.sortable-drag {
+  opacity: 0.8;
+  background-color: white !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* 响应式设计 */

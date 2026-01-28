@@ -95,8 +95,11 @@ const handleContextMenuDelete = (fileId) => {
 const handleOpenLocation = async (file) => {
   try {
     if (file && file.path) {
+      // 检测是否在 Tauri 环境
+      const isTauri = !!window.__TAURI_INTERNALS__;
+      
       // 打开文件所在位置并选择文件
-      if (window.__TAURI_INTERNALS__?.invoke) {
+      if (isTauri) {
         await invoke('open_file_location', { path: file.path })
       } else {
         // 浏览器环境下的降级处理

@@ -2,6 +2,9 @@ import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
+// 检测是否在 Tauri 环境中运行
+const isTauri = () => !!window.__TAURI_INTERNALS__;
+
 // 辅助函数：生成 display_name，去掉常见后缀
 const generateDisplayName = (fileName) => {
   if (fileName) {
@@ -18,10 +21,10 @@ const generateDisplayName = (fileName) => {
 }
 
 // Global state
-const currentCategory = ref('main')
+const currentCategory = ref('main') // 这里存储分类的 ID
 const customCategories = ref([])
 const filesByCategory = ref({
-  'main': []
+  'main': [] // key 是分类的 ID
 })
 
 // Computed
@@ -29,8 +32,11 @@ const currentFiles = computed(() => {
   return filesByCategory.value[currentCategory.value] || []
 })
 
-const allCategories = computed(() => {
-  return customCategories.value
+const allCategories = computed({
+  get: () => customCategories.value,
+  set: (val) => {
+    customCategories.value = val
+  }
 })
 
 export function useFiles() {
@@ -43,13 +49,17 @@ export function useFiles() {
     const existing = customCategories.value.find(c => c.name === name)
     if (existing) return
 
+    const id = Date.now().toString()
     const newCategory = {
-      id: Date.now().toString(),
+      id: id,
+      parent_id: null,
       name: name,
+      icon: null,
+      sort_order: customCategories.value.length
     }
     customCategories.value.push(newCategory)
-    if (!filesByCategory.value[name]) {
-      filesByCategory.value[name] = []
+    if (!filesByCategory.value[id]) {
+      filesByCategory.value[id] = []
     }
     await saveCategories()
   }
@@ -59,30 +69,13 @@ export function useFiles() {
     
     const category = customCategories.value.find(c => c.id === id)
     if (category) {
-      const oldName = category.name
       category.name = newName
       
-      // Update files that belong to this category
-      if (filesByCategory.value[oldName]) {
-        filesByCategory.value[newName] = filesByCategory.value[oldName]
-        delete filesByCategory.value[oldName]
-        
-        // Update category property in file objects
-        filesByCategory.value[newName].forEach(f => f.category = newName)
-      }
-      
-      if (currentCategory.value === oldName) {
-        currentCategory.value = newName
-      }
-
       try {
-        if (window.__TAURI_INTERNALS__?.invoke) {
+        if (isTauri()) {
           await invoke('rename_category_in_db', { id, newName })
-          // We also need to save files because their category names changed
-          await saveFiles()
         } else {
           localStorage.setItem('oopslauncher_categories', JSON.stringify(customCategories.value))
-          localStorage.setItem('oopslauncher_files', JSON.stringify(filesByCategory.value))
         }
       } catch (error) {
         console.error('Failed to rename category:', error)
@@ -90,9 +83,46 @@ export function useFiles() {
     }
   }
 
+  const deleteCategory = async (id) => {
+    if (!id) return
+    
+    // 检查是否是最后一个分类，不允许删除最后一个分类以保证系统运行
+    if (customCategories.value.length <= 1) {
+      console.warn('Cannot delete the last category.')
+      return
+    }
+    
+    const index = customCategories.value.findIndex(c => c.id === id)
+    if (index !== -1) {
+      customCategories.value.splice(index, 1)
+      
+      // 删除该分类下的所有文件映射
+      if (filesByCategory.value[id]) {
+        delete filesByCategory.value[id]
+      }
+      
+      // 如果删除的是当前选中的分类，切换到列表中的第一个分类
+      if (currentCategory.value === id) {
+        currentCategory.value = customCategories.value[0].id
+      }
+
+      try {
+        if (isTauri()) {
+          await invoke('delete_category_from_db', { id })
+        } else {
+          localStorage.setItem('oopslauncher_categories', JSON.stringify(customCategories.value))
+          localStorage.setItem('oopslauncher_files', JSON.stringify(filesByCategory.value))
+        }
+        console.log(`Category ${id} deleted successfully`)
+      } catch (error) {
+        console.error('Failed to delete category:', error)
+      }
+    }
+  }
+
   const saveCategories = async () => {
     try {
-      if (window.__TAURI_INTERNALS__?.invoke) {
+      if (isTauri()) {
         await invoke('save_categories_to_db', { categories: customCategories.value })
       } else {
         localStorage.setItem('oopslauncher_categories', JSON.stringify(customCategories.value))
@@ -103,11 +133,19 @@ export function useFiles() {
     }
   }
 
-  const switchCategory = (category) => {
-    currentCategory.value = category
-    if (!filesByCategory.value[category]) {
-      filesByCategory.value[category] = []
+  const switchCategory = (categoryId) => {
+    currentCategory.value = categoryId
+    if (!filesByCategory.value[categoryId]) {
+      filesByCategory.value[categoryId] = []
     }
+  }
+
+  const updateCategoryOrder = async (newOrder) => {
+    customCategories.value = newOrder.map((cat, index) => ({
+      ...cat,
+      sort_order: index
+    }))
+    await saveCategories()
   }
 
   const getFileIcon = async (file) => {
@@ -130,16 +168,16 @@ export function useFiles() {
 
   const saveFiles = async () => {
     try {
-      if (window.__TAURI_INTERNALS__?.invoke) {
+      if (isTauri()) {
         const allFiles = []
-        for (const [category, categoryFiles] of Object.entries(filesByCategory.value)) {
+        for (const [categoryId, categoryFiles] of Object.entries(filesByCategory.value)) {
           for (const file of categoryFiles) {
             // 转换openCount为open_count
             const fileWithOpenCount = {
               ...file,
               open_count: file.openCount || 0,
               display_name: file.displayName || generateDisplayName(file.name),
-              category
+              category: categoryId // 确保保存的是分类的 ID
             }
             delete fileWithOpenCount.openCount
             delete fileWithOpenCount.displayName
@@ -147,7 +185,7 @@ export function useFiles() {
           }
         }
         await invoke('save_files_to_db', { files: allFiles })
-        console.log('Files saved successfully')
+        console.log('Files saved successfully to DB')
       } else {
         localStorage.setItem('oopslauncher_files', JSON.stringify(filesByCategory.value))
       }
@@ -159,7 +197,7 @@ export function useFiles() {
 
   const loadFiles = async () => {
     try {
-      if (!window.__TAURI_INTERNALS__?.invoke) {
+      if (!isTauri()) {
         const savedFiles = localStorage.getItem('oopslauncher_files')
         if (savedFiles) {
           filesByCategory.value = JSON.parse(savedFiles)
@@ -169,65 +207,81 @@ export function useFiles() {
           customCategories.value = JSON.parse(savedCats)
         }
         
-        // Ensure main exists
-        if (!customCategories.value.some(c => c.name === 'main')) {
-          customCategories.value.unshift({ id: 'main', name: 'main' })
+        // 如果没有任何分类，则创建一个默认的
+        if (customCategories.value.length === 0) {
+          customCategories.value.unshift({ 
+            id: 'main', 
+            parent_id: null,
+            name: 'main', 
+            icon: null,
+            sort_order: 0 
+          })
+        }
+        
+        // 确保当前选中的分类有效
+        if (!customCategories.value.some(c => c.id === currentCategory.value)) {
+          currentCategory.value = customCategories.value[0].id
         }
         return
       }
 
       // Load categories first
       let loadedCats = await invoke('load_categories_from_db')
-      if (loadedCats) {
-        // 确保 main 分类存在，既检查 name 也检查 id
-        const hasMainByName = loadedCats.some(c => c.name === 'main')
-        const hasMainById = loadedCats.some(c => c.id === 'main')
-        
-        if (!hasMainByName && !hasMainById) {
-          const mainCat = { id: 'main', name: 'main' }
-          loadedCats.unshift(mainCat)
-          await invoke('save_categories_to_db', { categories: loadedCats })
-        } else if (hasMainById && !hasMainByName) {
-          // 如果 id 存在但 name 不是 main，更正它
-          const mainIdx = loadedCats.findIndex(c => c.id === 'main')
-          loadedCats[mainIdx].name = 'main'
-          await invoke('save_categories_to_db', { categories: loadedCats })
-        }
-        customCategories.value = loadedCats
-      } else {
-        customCategories.value = [{ id: 'main', name: 'main' }]
-        await invoke('save_categories_to_db', { categories: customCategories.value })
+      if (!loadedCats || loadedCats.length === 0) {
+        // 只有在完全没有分类时才创建默认分类
+        loadedCats = [{ 
+          id: 'main', 
+          parent_id: null,
+          name: 'main', 
+          icon: null,
+          sort_order: 0 
+        }]
+        await invoke('save_categories_to_db', { categories: loadedCats })
+      }
+      
+      customCategories.value = loadedCats
+      
+      // 确保当前选中的分类在加载后的列表中存在，否则切换到第一个
+      if (!customCategories.value.some(c => c.id === currentCategory.value)) {
+        currentCategory.value = customCategories.value[0].id
       }
 
       const loaded = await invoke('load_files_from_db')
-      if (loaded) {
-        const organizedFiles = { 'main': [] }
-        // Ensure all custom categories are present in filesByCategory
-        customCategories.value.forEach(cat => {
-          if (cat && cat.name) {
-            organizedFiles[cat.name] = []
-          }
-        })
-
-        for (const file of loaded) {
-          const category = file.category || 'main'
-          if (!organizedFiles[category]) {
-            organizedFiles[category] = []
-          }
-          // 转换open_count为openCount
-          const { category: _, open_count, display_name, ...fileWithoutCategory } = file
-          const fileWithOpenCount = {
-            ...fileWithoutCategory,
-            openCount: open_count || 0,
-            displayName: display_name || generateDisplayName(file.name)
-          }
-          organizedFiles[category].push(fileWithOpenCount)
+      const organizedFiles = {}
+      
+      // Ensure all custom categories are present in filesByCategory
+      customCategories.value.forEach(cat => {
+        if (cat && cat.id) {
+          organizedFiles[cat.id] = []
         }
-        filesByCategory.value = organizedFiles
+      })
+
+      if (loaded && loaded.length > 0) {
+        console.log(`Processing ${loaded.length} loaded files...`)
+        for (const file of loaded) {
+          const categoryId = file.category
+          
+          // 如果文件所属的分类已不存在，可以考虑移动到当前第一个分类或丢弃
+          const targetId = organizedFiles[categoryId] ? categoryId : customCategories.value[0].id
+          
+          // 转换字段名并保留 category 属性 (存储的是 ID)
+          const { open_count, display_name, ...otherFields } = file
+          const fileWithFormattedFields = {
+            ...otherFields,
+            openCount: open_count || 0,
+            displayName: display_name || generateDisplayName(file.name),
+            category: targetId
+          }
+          organizedFiles[targetId].push(fileWithFormattedFields)
+        }
       }
-      console.log('Files loaded successfully')
+      
+      filesByCategory.value = organizedFiles
+      console.log('Final organized files (by ID):', filesByCategory.value)
+      console.log('Files loaded successfully from DB:', loaded?.length || 0, 'files')
     } catch (error) {
-      console.error('Failed to load files:', error)
+      console.error('Failed to load files from DB:', error)
+      // Fallback to localStorage on error
       const saved = localStorage.getItem('oopslauncher_files')
       if (saved) {
         filesByCategory.value = JSON.parse(saved)
@@ -243,7 +297,7 @@ export function useFiles() {
     for (const file of fileList) {
       let fileInfo;
       
-      if (window.__TAURI_INTERNALS__?.invoke && (file.path || file.name)) {
+      if (isTauri() && (file.path || file.name)) {
         try {
           const path = file.path || file.name;
           fileInfo = await invoke('get_file_info', { path });
@@ -348,6 +402,8 @@ export function useFiles() {
     switchCategory,
     addCategory,
     renameCategory,
+    deleteCategory,
+    updateCategoryOrder,
     loadFiles,
     processFiles,
     deleteFile,

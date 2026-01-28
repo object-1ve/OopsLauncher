@@ -21,7 +21,9 @@ pub fn run() {
         commands::category::save_categories_to_db, 
         commands::category::load_categories_from_db,
         commands::category::rename_category_in_db,
+        commands::category::delete_category_from_db,
         commands::notification::send_notification_custom,
+        commands::app::get_app_version,
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
