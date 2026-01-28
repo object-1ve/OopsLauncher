@@ -11,7 +11,18 @@ export default defineConfig({
   },
   // vite 配置
   server: {
-    port: 5173
+    port: 5175,
+    strictPort: true
+  },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern-compiler'
+      },
+      sass: {
+        api: 'modern-compiler'
+      }
+    }
   },
   build: {
     // 简化构建配置

@@ -3,12 +3,17 @@
     <div class="titlebar-content">
       <div class="app-icon">
         <!-- 这里可以放置应用图标 -->
-        <span class="icon-emoji">🚀</span>
+        <span class="icon-emoji"
+          ><img src="@/assets/icon.png" alt="图标" style="width: 24px; height: 24px"
+        /></span>
       </div>
       <div class="app-title">OopsLauncher</div>
     </div>
-    
+
     <div class="titlebar-controls">
+      <div class="titlebar-button settings" @click="openSettings">
+        <el-icon><Setting /></el-icon>
+      </div>
       <div class="titlebar-button minimize" @click="minimize">
         <el-icon><Minus /></el-icon>
       </div>
@@ -24,38 +29,66 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { Window } from '@tauri-apps/api/window'
-import { Minus, CopyDocument, FullScreen, Close } from '@element-plus/icons-vue'
+import { ref, onMounted } from "vue";
+import { Window } from "@tauri-apps/api/window";
+import { Minus, CopyDocument, FullScreen, Close, Setting } from "@element-plus/icons-vue";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
-const appWindow = new Window('main')
-const isMaximized = ref(false)
+const appWindow = new Window("main");
+const isMaximized = ref(false);
+
+const openSettings = async () => {
+  // 先尝试获取已存在的设置窗口
+  const existingWindow = await WebviewWindow.getByLabel("settings");
+  if (existingWindow) {
+    await existingWindow.setFocus();
+    return;
+  }
+
+  const settingsWindow = new WebviewWindow("settings", {
+    url: "/settings",
+    title: "设置",
+    width: 650,
+    height: 550,
+    resizable: false,
+    decorations: false, // 改为无边框，我们在页面内部实现自定义关闭逻辑
+    center: true,
+  });
+
+  settingsWindow.once("tauri://created", function () {
+    console.log("Settings window created");
+  });
+
+  settingsWindow.once("tauri://error", function (e) {
+    console.error("Failed to create settings window:", e);
+  });
+};
 
 const minimize = async () => {
-  await appWindow.minimize()
-}
+  await appWindow.minimize();
+};
 
 const toggleMaximize = async () => {
-  await appWindow.toggleMaximize()
-}
+  await appWindow.toggleMaximize();
+};
 
 const close = async () => {
-  await appWindow.close()
-}
+  await appWindow.close();
+};
 
 onMounted(async () => {
   // 监听窗口大小变化以更新最大化状态图标
   // 注意：Tauri v2 的事件监听可能需要调整，这里先简单实现
   // 实际开发中可以通过监听 tauri://resize 事件或定期检查
-  
+
   // 简单的状态检查
-  isMaximized.value = await appWindow.isMaximized()
-  
+  isMaximized.value = await appWindow.isMaximized();
+
   // 监听最大化事件
   // appWindow.listen('tauri://resize', async () => {
   //   isMaximized.value = await appWindow.isMaximized()
   // })
-})
+});
 </script>
 
 <style scoped>
@@ -65,12 +98,8 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 9999;
-
+  background-color: #fff;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .titlebar-content {
@@ -87,7 +116,9 @@ onMounted(async () => {
 }
 
 .icon-emoji {
-  font-size: 16px;
+  margin-top: 3px;
+  align-items: center;
+  justify-content: center;
 }
 
 .app-title {

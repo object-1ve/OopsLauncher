@@ -1,18 +1,18 @@
 <template>
   <!-- 右键菜单 -->
-  <div 
-    v-if="visible" 
+  <div
+    v-if="visible"
     class="context-menu"
     :style="{
       left: x + 'px',
-      top: y + 'px'
+      top: y + 'px',
     }"
   >
     <ul class="context-menu-list">
-      <li 
-        @click="handleDelete"
-        class="context-menu-item"
-      >
+      <li @click="handleOpenLocation" class="context-menu-item">
+        <el-icon><Folder /></el-icon> 打开文件所在位置
+      </li>
+      <li @click="handleDelete" class="context-menu-item">
         <el-icon><Delete /></el-icon> 删除
       </li>
     </ul>
@@ -20,38 +20,50 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref } from "vue";
 
 // Props
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
+    default: false,
   },
   x: {
     type: Number,
-    default: 0
+    default: 0,
   },
   y: {
     type: Number,
-    default: 0
+    default: 0,
   },
   selectedFileId: {
     type: String,
-    default: null
-  }
-})
+    default: null,
+  },
+  selectedFile: {
+    type: Object,
+    default: null,
+  },
+});
 
 // Emits
-const emit = defineEmits(['delete', 'hide'])
+const emit = defineEmits(["delete", "hide", "openLocation"]);
 
 // 方法：处理删除
 const handleDelete = () => {
   if (props.selectedFileId) {
-    emit('delete', props.selectedFileId)
-    emit('hide')
+    emit("delete", props.selectedFileId);
+    emit("hide");
   }
-}
+};
+
+// 方法：处理打开文件所在位置
+const handleOpenLocation = () => {
+  if (props.selectedFile) {
+    emit("openLocation", props.selectedFile);
+    emit("hide");
+  }
+};
 </script>
 
 <style scoped>

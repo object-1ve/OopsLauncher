@@ -80,6 +80,7 @@ npm run tauri build
 4.  推送到分支 (`git push origin feature/AmazingFeature`)
 5.  开启一个 Pull Request
 
+参考了 https://github.com/fanchenio/DawnLauncher 项目的设计和实现。感谢大佬
 ## 📄 许可证
 
 本项目基于 [MIT 许可证](LICENSE) 开源。

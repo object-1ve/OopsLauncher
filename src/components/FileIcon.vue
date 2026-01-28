@@ -1,80 +1,110 @@
 <template>
-  <div class="file-icon-wrapper">
-    <div 
+  <div :class="settings.appearance.itemLayout">
+    <div
       class="icon-item"
+      :style="
+        settings.appearance.itemLayout === 'tile'
+          ? {
+              width: settings.appearance.iconSize * 1.6 + 'px',
+              height: settings.appearance.iconSize * 2 + 'px',
+            }
+          : {
+              width: '100%',
+              height: settings.appearance.iconSize + 16 + 'px',
+            }
+      "
+      :title="`名称: ${file.name}\n打开次数: ${file.openCount || 0}\n位置: ${
+        file.path || '未知'
+      }`"
       @click="handleFileClick"
       @contextmenu="handleContextMenu"
     >
-
       <!-- 显示真实图标或emoji -->
-      <div class="icon-wrapper">
-        <img 
+      <div
+        class="icon-wrapper"
+        :style="{
+          width: settings.appearance.iconSize + 'px',
+          height: settings.appearance.iconSize + 'px',
+        }"
+      >
+        <img
           v-if="file.icon && file.icon.startsWith('data:image/')"
-          :src="file.icon" 
+          :src="file.icon"
           :alt="file.name"
           class="file-icon-img"
         />
-        <div 
+        <div
           v-else
           class="file-icon-emoji"
+          :style="{ fontSize: settings.appearance.iconSize + 'px' }"
         >
-          {{ file.icon || '📄' }}
+          {{ file.icon || "📄" }}
         </div>
       </div>
-      
-      <div class="file-name" :title="file.name">
-        {{ file.name }}
+
+      <div class="file-name">
+        {{ file.displayName || getFileNameWithoutExtension(file.name) }}
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { useSettings } from "@/composables/useSettings";
+
+const { settings } = useSettings();
 
 // Props
 const props = defineProps({
   file: {
     type: Object,
-    required: true
-  }
-})
+    required: true,
+  },
+});
 
 // Emits
-const emit = defineEmits(['open', 'delete', 'contextmenu'])
+const emit = defineEmits(["open", "delete", "contextmenu"]);
+
+// 方法：获取不带后缀的文件名
+const getFileNameWithoutExtension = (fileName) => {
+  const lastDotIndex = fileName.lastIndexOf(".");
+  return lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName;
+};
 
 // 方法：处理文件点击
 const handleFileClick = () => {
-  emit('open', props.file)
-}
+  emit("open", props.file);
+};
 
 // 方法：处理右键菜单
 const handleContextMenu = (e) => {
-  e.preventDefault()
-  emit('contextmenu', { event: e, fileId: props.file.id })
-}
+  e.preventDefault();
+  emit("contextmenu", { event: e, fileId: props.file.id });
+};
 </script>
 
 <style scoped>
-.file-icon-wrapper {
-  /* 移除 margin-bottom，布局由父级控制 */
-}
-
 .icon-item {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  width: 80px;  /* 缩小宽度 */
-  height: 100px; /* 缩小高度 */
+  border-radius: v-bind("settings.appearance.css.borderRadius");
   cursor: pointer;
   transition: all 0.2s ease;
+  margin: v-bind("settings.appearance.css.itemMargin");
+  padding: v-bind("settings.appearance.css.itemPadding");
+}
+
+.list .icon-item {
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: 0 v-bind("settings.appearance.css.itemPadding");
 }
 
 .icon-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  /* 移除 width/height 的重设，保持一致 */
+  background-color: v-bind("settings.appearance.css.hoverColor");
+  height: 60px;
 }
 
 .icon-wrapper {
@@ -82,8 +112,11 @@ const handleContextMenu = (e) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 50px;
+}
+
+.list .icon-wrapper {
+  margin-bottom: 0;
+  margin-right: 12px;
 }
 
 .file-icon-img {
@@ -92,6 +125,7 @@ const handleContextMenu = (e) => {
   object-fit: contain;
   background-color: transparent; /* 确保背景透明 */
   mix-blend-mode: multiply; /* 可选：如果是白色背景的jpg，可以尝试混合 */
+  margin-top: 5px;
 }
 
 .file-icon-emoji {
@@ -100,20 +134,22 @@ const handleContextMenu = (e) => {
 }
 
 .file-name {
-  font-size: 13px;
-  color: #555;
+  font-size: v-bind("settings.appearance.css.fontSize");
+  color: v-bind("settings.appearance.css.textColor");
   text-align: center;
-  width: 100%;  padding: 0 4px;
-  
-  /* 多行显示逻辑 */
-  display: -webkit-box;
-  -webkit-line-clamp: 2; /* 限制为2行 */
-  -webkit-box-orient: vertical;
+  width: 100%;
+
+  /* 单行显示逻辑 */
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: normal; /* 允许换行 */
-  line-height: 1.4; /* 优化行高 */
-  height: 36px; /* 固定高度，避免跳动 (13px * 1.4 * 2 ≈ 36.4px) */
+  white-space: nowrap; /* 禁止换行 */
+  line-height: v-bind("settings.appearance.css.lineHeight"); /* 优化行高 */
+  height: v-bind("settings.appearance.css.lineHeight"); /* 固定高度，只显示一行 */
+}
+
+.list .file-name {
+  text-align: left;
+  height: v-bind("settings.appearance.css.lineHeight");
 }
 
 .icon-item:hover {

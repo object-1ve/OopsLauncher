@@ -32,3 +32,6 @@ src-tauri/gen/
 debug/
 target/
 **/*.rs.bk
+
+# Examples
+example/
