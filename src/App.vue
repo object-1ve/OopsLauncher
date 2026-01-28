@@ -12,7 +12,11 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettings } from "@/composables/useSettings";
 import { ElMessage } from "element-plus";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { invoke } from "@tauri-apps/api/core";
 
 const { settings } = useSettings();
@@ -24,7 +28,7 @@ const sendNativeNotification = async (title, body) => {
   try {
     let permissionGranted = await isPermissionGranted();
     console.log(`[Notification] Permission status: ${permissionGranted}`);
-    
+
     if (!permissionGranted) {
       console.log(`[Notification] Requesting permission...`);
       const permission = await requestPermission();
@@ -36,7 +40,6 @@ const sendNativeNotification = async (title, body) => {
       console.log(`[Notification] Sending via official JS API...`);
       // 使用官方推荐的 JS API
       sendNotification({ title, body });
-      
     } else {
       console.warn(`[Notification] Permission denied by user.`);
       ElMessage.warning(`通知权限被拒绝: ${title}`);
@@ -142,7 +145,7 @@ const registerTestNotificationShortcut = async () => {
     if (err.includes("already registered")) {
       sendNativeNotification(
         "快捷键冲突",
-        `测试通知快捷键 ${shortcut} 已被其他程序占用。`
+        `测试通知快捷键 ${shortcut} 已被其他程序占用!。`
       );
     }
   }
