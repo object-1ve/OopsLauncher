@@ -214,8 +214,7 @@ pub fn open_path(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        Command::new("cmd")
-            .args(["/C", "start", ""])
+        Command::new("explorer.exe")
             .arg(&path)
             .spawn()
             .map_err(|e| e.to_string())?;
