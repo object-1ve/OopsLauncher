@@ -3,10 +3,8 @@
   <div
     v-if="visible"
     class="context-menu"
-    :style="{
-      left: x + 'px',
-      top: y + 'px',
-    }"
+    :style="menuStyle"
+    ref="menuRef"
   >
     <ul class="context-menu-list">
       <li @click="handleOpenLocation" class="context-menu-item">
@@ -23,7 +21,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed, nextTick, watch } from "vue";
 
 // Props
 const props = defineProps({
@@ -51,6 +49,58 @@ const props = defineProps({
 
 // Emits
 const emit = defineEmits(["delete", "hide", "openLocation", "editInfo"]);
+
+// 菜单元素引用
+const menuRef = ref(null);
+
+// 菜单尺寸
+const menuSize = ref({ width: 200, height: 150 });
+
+// 计算菜单位置
+const menuStyle = computed(() => {
+  if (!props.visible) return {};
+  
+  let { x, y } = props;
+  const { width, height } = menuSize.value;
+  
+  // 获取视窗尺寸
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  // 调整水平位置，确保菜单不会超出视窗
+  if (x + width > viewportWidth) {
+    x = Math.max(0, x - width);
+  }
+  
+  // 调整垂直位置，确保菜单不会超出视窗
+  if (y + height > viewportHeight) {
+    y = Math.max(0, y - height);
+  }
+  
+  return {
+    left: x + 'px',
+    top: y + 'px',
+  };
+});
+
+// 监听可见性变化，更新菜单尺寸
+watch(() => props.visible, async (newVisible) => {
+  if (newVisible) {
+    await nextTick();
+    updateMenuSize();
+  }
+});
+
+// 更新菜单尺寸
+const updateMenuSize = () => {
+  if (menuRef.value) {
+    const rect = menuRef.value.getBoundingClientRect();
+    menuSize.value = {
+      width: rect.width,
+      height: rect.height
+    };
+  }
+};
 
 // 方法：处理删除
 const handleDelete = () => {

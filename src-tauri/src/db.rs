@@ -34,7 +34,8 @@ pub fn init_database(conn: &Connection) -> Result<(), String> {
             icon TEXT,
             content TEXT,
             category TEXT NOT NULL DEFAULT 'main',
-            open_count INTEGER DEFAULT 0
+            open_count INTEGER DEFAULT 0,
+            created_at INTEGER
         )",
         []
     ).map_err(|e| e.to_string())?;
@@ -106,6 +107,14 @@ pub fn init_database(conn: &Connection) -> Result<(), String> {
     if !columns.contains(&"display_name".to_string()) {
         conn.execute(
             "ALTER TABLE files ADD COLUMN display_name TEXT NOT NULL DEFAULT ''",
+            []
+        ).map_err(|e| e.to_string())?;
+    }
+    
+    // 如果created_at列不存在，则添加它
+    if !columns.contains(&"created_at".to_string()) {
+        conn.execute(
+            "ALTER TABLE files ADD COLUMN created_at INTEGER",
             []
         ).map_err(|e| e.to_string())?;
     }

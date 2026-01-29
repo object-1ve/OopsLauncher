@@ -172,16 +172,17 @@ export function useFiles() {
         const allFiles = []
         for (const [categoryId, categoryFiles] of Object.entries(filesByCategory.value)) {
           for (const file of categoryFiles) {
-            // 转换openCount为open_count
-            const fileWithOpenCount = {
+            // 转换openCount为open_count, displayName为display_name
+            const fileToSave = {
               ...file,
               open_count: file.openCount || 0,
               display_name: file.displayName || generateDisplayName(file.name),
-              category: categoryId // 确保保存的是分类的 ID
+              category: categoryId,
+              created_at: file.created_at || Date.now()
             }
-            delete fileWithOpenCount.openCount
-            delete fileWithOpenCount.displayName
-            allFiles.push(fileWithOpenCount)
+            delete fileToSave.openCount
+            delete fileToSave.displayName
+            allFiles.push(fileToSave)
           }
         }
         await invoke('save_files_to_db', { files: allFiles })
@@ -265,12 +266,14 @@ export function useFiles() {
           const targetId = organizedFiles[categoryId] ? categoryId : customCategories.value[0].id
           
           // 转换字段名并保留 category 属性 (存储的是 ID)
-          const { open_count, display_name, ...otherFields } = file
+          const { open_count, display_name, created_at, ...otherFields } = file
           const fileWithFormattedFields = {
             ...otherFields,
             openCount: open_count || 0,
             displayName: display_name || generateDisplayName(file.name),
-            category: targetId
+            category: targetId,
+            // 如果数据库里没时间（老数据），加载时补全，避免每次保存都变
+            created_at: created_at || Date.now() 
           }
           organizedFiles[targetId].push(fileWithFormattedFields)
         }
@@ -293,6 +296,9 @@ export function useFiles() {
     if (!filesByCategory.value[currentCategory.value]) {
       filesByCategory.value[currentCategory.value] = []
     }
+    
+    let addedCount = 0;
+    let existingCount = 0;
     
     for (const file of fileList) {
       let fileInfo;
@@ -320,15 +326,29 @@ export function useFiles() {
           size: file.size,
           type: file.type,
           icon: await getFileIcon(file),
-          category: currentCategory.value
+          category: currentCategory.value,
+          created_at: Date.now()
         }
       }
       
       if (!filesByCategory.value[currentCategory.value].some(f => f.path === fileInfo.path)) {
-        filesByCategory.value[currentCategory.value].push(fileInfo)
+        filesByCategory.value[currentCategory.value].push(fileInfo);
+        addedCount++;
+      } else {
+        existingCount++;
+        console.warn(`File already exists: ${fileInfo.path}`);
       }
     }
-    await saveFiles()
+    
+    if (addedCount > 0) {
+      await saveFiles();
+    }
+    
+    // 返回添加结果，以便调用者可以显示适当的消息
+    return {
+      addedCount,
+      existingCount
+    };
   }
 
   const deleteFile = (id) => {
@@ -382,6 +402,7 @@ export function useFiles() {
                 }
                 fileInfo.category = currentCategory.value
                 fileInfo.displayName = fileInfo.display_name || generateDisplayName(fileInfo.name)
+                fileInfo.created_at = fileInfo.created_at || Date.now()
                 filesByCategory.value[currentCategory.value].push(fileInfo)
               } catch (error) {
                 console.error(`Failed to process path ${path}:`, error)

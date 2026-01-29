@@ -21,7 +21,7 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
     
     // 插入新数据
     let mut stmt = tx.prepare(
-        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).map_err(|e| e.to_string())?;
 
     for mut file in files {
@@ -36,6 +36,14 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
                     None => "main"
                 };
                 
+                // 获取当前时间作为创建时间（如果前端没传）
+                let created_at = file.created_at.unwrap_or_else(|| {
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as i64
+                });
+                
                 // 尝试执行插入
                 if let Err(e) = stmt.execute(
                     params![
@@ -48,7 +56,8 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
                         &file.icon,
                         &file.content,
                         category_id,
-                        file.open_count.unwrap_or(0) as i64
+                        file.open_count.unwrap_or(0) as i64,
+                        created_at
                     ]
                 ) {
                     println!("Failed to save file {} to DB: {}", file.name, e);
@@ -77,7 +86,7 @@ pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String
     println!("Loading files from database...");
     let conn = get_db_connection(&app)?;
     
-    let mut stmt = conn.prepare("SELECT id, name, display_name, path, size, type, icon, content, category, open_count FROM files ORDER BY open_count DESC")
+    let mut stmt = conn.prepare("SELECT id, name, display_name, path, size, type, icon, content, category, open_count, created_at FROM files ORDER BY open_count DESC")
         .map_err(|e| {
             println!("Failed to prepare select statement: {}", e);
             e.to_string()
@@ -94,7 +103,8 @@ pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String
             icon: row.get(6)?,
             content: row.get(7)?,
             category: Some(row.get(8)?),
-            open_count: Some(row.get::<_, i64>(9)? as u64)
+            open_count: Some(row.get::<_, i64>(9)? as u64),
+            created_at: row.get(10)?,
         })
     }).map_err(|e| {
         println!("Failed to query files: {}", e);
@@ -169,6 +179,11 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
         name.clone()
     };
 
+    let created_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+
     Ok(FileInfo {
         id: "".to_string(),
         name,
@@ -180,6 +195,7 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
         content,
         category: None,
         open_count: None,
+        created_at: Some(created_at),
     })
 }
 

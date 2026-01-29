@@ -68,7 +68,16 @@ const fileInfoDialog = ref({
 
 // 方法：处理文件添加
 const handleFileAdd = async (fileList) => {
-  await processFiles(fileList)
+  const result = await processFiles(fileList)
+  
+  // 显示添加结果的消息
+  if (result.addedCount > 0 && result.existingCount === 0) {
+    ElMessage.success(`成功添加 ${result.addedCount} 个文件`)
+  } else if (result.addedCount > 0 && result.existingCount > 0) {
+    ElMessage.success(`成功添加 ${result.addedCount} 个文件，${result.existingCount} 个文件已存在`)
+  } else if (result.existingCount > 0) {
+    ElMessage.warning(`所有 ${result.existingCount} 个文件都已存在，添加失败`)
+  }
 }
 
 // 方法：处理右键菜单显示
