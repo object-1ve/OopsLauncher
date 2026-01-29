@@ -8,6 +8,11 @@
         animation="150"
         ghost-class="sortable-ghost"
         drag-class="sortable-drag"
+        :disabled="false"
+        :force-fallback="true"
+        :fallback-tolerance="3"
+        @start="handleDragStart"
+        @move="handleDragMove"
         @end="handleDragEnd"
       >
         <template #item="{ element: item }">
@@ -90,7 +95,25 @@ const { allCategories, addCategory, deleteCategory, updateCategoryOrder } = useF
 // 侧边栏元素引用
 const menuItemsRef = ref(null);
 
-const handleDragEnd = async () => {
+const handleDragStart = (evt) => {
+  console.log('Drag started:', evt);
+  console.log('Dragged element:', evt.item);
+  console.log('Start index:', evt.oldIndex);
+  console.log('All categories:', allCategories.value);
+};
+
+const handleDragMove = (evt, originalEvent) => {
+  console.log('Drag moving:', evt);
+  console.log('Original event:', originalEvent);
+  console.log('Related element:', evt.related);
+  console.log('Drag operation:', evt.operation);
+  return true; // 允许所有移动操作
+};
+
+const handleDragEnd = async (evt) => {
+  console.log('Drag ended:', evt);
+  console.log('Old index:', evt.oldIndex, 'New index:', evt.newIndex);
+  console.log('Updated categories:', allCategories.value);
   // vuedraggable 已经通过 v-model 更新了 allCategories.value
   // 我们只需要调用 updateCategoryOrder 来持久化到数据库
   await updateCategoryOrder(allCategories.value);
@@ -241,10 +264,80 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100%; /* 确保侧边栏占满高度 */
   border-right: 1px solid #f5f5f5;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
+
 .sidebar-menu {
   flex: 1;
   overflow-y: auto; /* 允许菜单内容滚动 */
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.menu-items {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  position: relative;
+  z-index: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.sidebar-item-container {
+  position: relative;
+  z-index: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.menu-item {
+  position: relative;
+  z-index: 1;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.menu-item:active {
+  cursor: grabbing;
+}
+
+.item-name {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.sortable-ghost {
+  opacity: 0.4;
+  background-color: #f0f7ff !important;
+  border: 1px dashed #409eff;
+  border-radius: 4px;
+  position: relative;
+  z-index: 10;
+}
+
+.sortable-drag {
+  opacity: 0.8;
+  background-color: white !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  position: relative;
+  z-index: 100;
 }
 
 .sidebar-footer {
