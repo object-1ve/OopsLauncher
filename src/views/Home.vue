@@ -19,6 +19,15 @@
       @delete="handleContextMenuDelete"
       @hide="hideContextMenu"
       @openLocation="handleOpenLocation"
+      @editInfo="handleEditInfo"
+    />
+    
+    <!-- 文件信息编辑弹窗 -->
+    <FileInfoDialog
+      v-model:visible="fileInfoDialog.visible"
+      :current-file="fileInfoDialog.currentFile"
+      @save="handleSaveFileInfo"
+      @cancel="handleCancelFileInfo"
     />
   </div>
 </template>
@@ -27,8 +36,10 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import DropZone from '@/components/DropZone.vue'
 import ContextMenu from '@/components/ContextMenu.vue'
+import FileInfoDialog from '@/components/FileInfoDialog.vue'
 import { useFiles } from '@/composables/useFiles'
 import { invoke } from '@tauri-apps/api/core'
+import { ElMessage } from 'element-plus'
 
 const { 
   currentFiles, 
@@ -37,7 +48,8 @@ const {
   deleteFile, 
   openFile,
   loadFiles,
-  setupTauriListeners 
+  setupTauriListeners,
+  saveFiles
 } = useFiles()
 
 const contextMenu = ref({
@@ -46,6 +58,12 @@ const contextMenu = ref({
   y: 0,
   selectedFileId: null,
   selectedFile: null
+})
+
+// 文件信息编辑弹窗状态
+const fileInfoDialog = ref({
+  visible: false,
+  currentFile: null
 })
 
 // 方法：处理文件添加
@@ -111,6 +129,46 @@ const handleOpenLocation = async (file) => {
     console.error('Failed to open file location:', error)
     alert(`打开文件所在位置失败: ${error.message}`)
   }
+}
+
+// 方法：处理文件信息编辑
+const handleEditInfo = (file) => {
+  fileInfoDialog.value = {
+    visible: true,
+    currentFile: file
+  }
+}
+
+// 方法：处理文件信息保存
+const handleSaveFileInfo = async (updatedFile) => {
+  try {
+    // 在 filesByCategory 中找到并更新对应的文件
+    for (const category in filesByCategory.value) {
+      const files = filesByCategory.value[category]
+      if (files) {
+        const fileIndex = files.findIndex(f => f.id === updatedFile.id)
+        if (fileIndex !== -1) {
+          files[fileIndex] = updatedFile
+          break
+        }
+      }
+    }
+    
+    // 保存更改到数据库
+    await saveFiles()
+    
+    // 显示保存成功的消息
+    ElMessage.success('文件信息保存成功')
+  } catch (error) {
+    console.error('保存文件信息失败:', error)
+    ElMessage.error('保存文件信息失败')
+  }
+}
+
+// 方法：处理文件信息取消编辑
+const handleCancelFileInfo = () => {
+  fileInfoDialog.value.visible = false
+  fileInfoDialog.value.currentFile = null
 }
 
 // 方法：点击空白处隐藏右键菜单

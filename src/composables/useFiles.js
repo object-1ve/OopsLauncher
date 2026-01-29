@@ -408,6 +408,7 @@ export function useFiles() {
     processFiles,
     deleteFile,
     openFile,
-    setupTauriListeners
+    setupTauriListeners,
+    saveFiles
   }
 }

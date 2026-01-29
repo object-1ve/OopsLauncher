@@ -12,6 +12,9 @@
       <li @click="handleOpenLocation" class="context-menu-item">
         <el-icon><Folder /></el-icon> 打开文件所在位置
       </li>
+      <li @click="handleEditInfo" class="context-menu-item">
+        <el-icon><Edit /></el-icon> 编辑信息
+      </li>
       <li @click="handleDelete" class="context-menu-item">
         <el-icon><Delete /></el-icon> 删除
       </li>
@@ -47,7 +50,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "editInfo"]);
 
 // 方法：处理删除
 const handleDelete = () => {
@@ -61,6 +64,14 @@ const handleDelete = () => {
 const handleOpenLocation = () => {
   if (props.selectedFile) {
     emit("openLocation", props.selectedFile);
+    emit("hide");
+  }
+};
+
+// 方法：处理编辑信息
+const handleEditInfo = () => {
+  if (props.selectedFile) {
+    emit("editInfo", props.selectedFile);
     emit("hide");
   }
 };
