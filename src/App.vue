@@ -193,8 +193,27 @@ watch(
   { immediate: true }
 );
 
+// 监听隐藏任务栏变化
+watch(
+  () => settings.value.general.hideTaskbar,
+  async (val) => {
+    try {
+      await invoke("set_skip_taskbar", { skip: val });
+    } catch (err) {
+      console.error("Failed to set skip taskbar:", err);
+    }
+  }
+);
+
 onMounted(async () => {
   try {
+    // 移除窗口动画 (参考 DawnLauncher)
+    if (appWindow.label === "main") {
+      await invoke("remove_window_animation").catch((e) =>
+        console.error("Failed to remove animation:", e)
+      );
+    }
+
     // 只在主窗口注册快捷键，避免多窗口重复注册冲突
     if (appWindow.label === "main") {
       await registerAllShortcuts();
@@ -204,6 +223,11 @@ onMounted(async () => {
     if (appWindow && typeof appWindow.setOpacity === "function") {
       await appWindow.setOpacity(settings.value.appearance.transparency);
     }
+
+    // 初始化任务栏显示状态
+    await invoke("set_skip_taskbar", {
+      skip: settings.value.general.hideTaskbar,
+    }).catch((e) => console.error("Failed to init skip taskbar:", e));
 
     // 3. 强制显示窗口
     await appWindow.show();

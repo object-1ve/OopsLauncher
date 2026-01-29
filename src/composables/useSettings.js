@@ -4,6 +4,7 @@ const defaultSettings = {
   general: {
     autoStart: false,
     minimizeToTray: true,
+    hideTaskbar: false,
     language: 'zh-CN',
   },
   appearance: {

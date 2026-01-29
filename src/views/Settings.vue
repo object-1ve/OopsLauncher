@@ -45,6 +45,9 @@
                 <el-checkbox v-model="settings.general.minimizeToTray"
                   >最小化到系统托盘</el-checkbox
                 >
+                <el-checkbox v-model="settings.general.hideTaskbar"
+                  >隐藏任务栏图标</el-checkbox
+                >
               </el-form-item>
               <el-form-item label="语言">
                 <el-select v-model="settings.general.language" style="width: 200px">

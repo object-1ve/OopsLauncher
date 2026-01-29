@@ -14,15 +14,13 @@
       <div class="titlebar-button settings" @click="openSettings">
         <el-icon><Setting /></el-icon>
       </div>
-      <div class="titlebar-button minimize" @click="minimize">
-        <el-icon><Minus /></el-icon>
-      </div>
+
       <div class="titlebar-button maximize" @click="toggleMaximize">
         <el-icon v-if="isMaximized"><CopyDocument /></el-icon>
         <el-icon v-else><FullScreen /></el-icon>
       </div>
-      <div class="titlebar-button close" @click="close">
-        <el-icon><Close /></el-icon>
+      <div class="titlebar-button minimize" @click="minimize">
+        <el-icon><Minus /></el-icon>
       </div>
     </div>
   </div>
@@ -72,9 +70,7 @@ const toggleMaximize = async () => {
   await appWindow.toggleMaximize();
 };
 
-const close = async () => {
-  await appWindow.close();
-};
+
 
 onMounted(async () => {
   // 监听窗口大小变化以更新最大化状态图标

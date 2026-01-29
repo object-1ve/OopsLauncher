@@ -21,12 +21,12 @@ tauri-build = { version = "2.3.0", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.3.0", features = [] }
+tauri = { version = "2.3.0", features = ["tray-icon"] }
 tauri-plugin-log = "2"
 
 # 用于获取文件图标
 #[cfg(target_os = "windows")]
-windows = { version = "0.52.0", features = ["Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_System_Com", "Win32_Foundation", "Win32_System_LibraryLoader"] }
+windows = { version = "0.52.0", features = ["Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_System_Com", "Win32_Foundation", "Win32_System_LibraryLoader", "Win32_Graphics_Dwm"] }
 
 # 用于图像处理
 image = "0.24.7"
