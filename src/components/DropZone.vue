@@ -7,6 +7,7 @@
       @dragover="handleDragOver"
       @dragleave="handleDragLeave"
       @drop="handleDrop"
+      @contextmenu.prevent="handleEmptyContextMenu"
     >
       <!-- 图标展示区域 -->
       <div class="icons-container" v-if="currentFiles.length > 0">
@@ -100,6 +101,11 @@ const handleFileDelete = (fileId) => {
 // 方法：处理文件右键菜单
 const handleFileContextMenu = (data) => {
   emit("contextmenu", data);
+};
+
+// 方法：处理空白区域右键菜单
+const handleEmptyContextMenu = (e) => {
+  emit("contextmenu", { event: e, fileId: null });
 };
 </script>
 

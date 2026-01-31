@@ -95,7 +95,7 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   background-color: #fff;
-  border-bottom: 1px solid #f0f0f0;
+
 }
 
 .titlebar-content {

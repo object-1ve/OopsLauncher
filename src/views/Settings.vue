@@ -404,7 +404,7 @@ const handleShortcutKeyDown = (e, keyType) => {
 }
 
 .control-btn:hover {
-  background-color: #f5f5f5;
+
 }
 
 .control-btn.close:hover {

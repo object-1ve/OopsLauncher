@@ -79,6 +79,7 @@ const handleFileClick = () => {
 // 方法：处理右键菜单
 const handleContextMenu = (e) => {
   e.preventDefault();
+  e.stopPropagation(); // 阻止冒泡，避免触发空白区右键菜单
   emit("contextmenu", { event: e, fileId: props.file.id });
 };
 </script>

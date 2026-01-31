@@ -250,9 +250,14 @@ onUnmounted(async () => {
 /* 主容器 */
 #app {
   height: 100vh;
-  width: 100%;
-  box-sizing: border-box;
-  background-color: #fff;
+  width: 100vw;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
 }
 </style>

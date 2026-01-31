@@ -263,7 +263,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%; /* 确保侧边栏占满高度 */
-  border-right: 1px solid #f5f5f5;
+
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -278,6 +278,7 @@ onUnmounted(() => {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  background-color:white;
 }
 
 .menu-items {
@@ -401,7 +402,6 @@ onUnmounted(() => {
 }
 
 .context-menu-item:hover {
-  background-color: #f5f5f5;
   color: #409eff;
 }
 

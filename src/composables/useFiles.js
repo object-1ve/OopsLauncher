@@ -26,10 +26,28 @@ const customCategories = ref([])
 const filesByCategory = ref({
   'main': [] // key 是分类的 ID
 })
+const sortMethod = ref('openCount') // 默认按打开次数排序
+const sortOrder = ref('desc') // 默认降序
 
 // Computed
 const currentFiles = computed(() => {
-  return filesByCategory.value[currentCategory.value] || []
+  const files = filesByCategory.value[currentCategory.value] || []
+  
+  // 应用排序逻辑
+  return [...files].sort((a, b) => {
+    let result = 0
+    if (sortMethod.value === 'openCount') {
+      result = (a.openCount || 0) - (b.openCount || 0)
+    } else if (sortMethod.value === 'created_at') {
+      result = (a.created_at || 0) - (b.created_at || 0)
+    } else {
+      // 默认按名称排序
+      result = (a.displayName || a.name || '').localeCompare(b.displayName || b.name || '')
+    }
+    
+    // 根据升降序翻转结果
+    return sortOrder.value === 'asc' ? result : -result
+  })
 })
 
 const allCategories = computed({
@@ -430,6 +448,8 @@ export function useFiles() {
     deleteFile,
     openFile,
     setupTauriListeners,
-    saveFiles
+    saveFiles,
+    sortMethod,
+    sortOrder
   }
 }

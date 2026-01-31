@@ -16,10 +16,13 @@
       :y="contextMenu.y"
       :selectedFileId="contextMenu.selectedFileId"
       :selectedFile="contextMenu.selectedFile"
+      :sortMethod="sortMethod"
+      :sortOrder="sortOrder"
       @delete="handleContextMenuDelete"
       @hide="hideContextMenu"
       @openLocation="handleOpenLocation"
       @editInfo="handleEditInfo"
+      @sort="handleSort"
     />
     
     <!-- 文件信息编辑弹窗 -->
@@ -49,7 +52,9 @@ const {
   openFile,
   loadFiles,
   setupTauriListeners,
-  saveFiles
+  saveFiles,
+  sortMethod,
+  sortOrder
 } = useFiles()
 
 const contextMenu = ref({
@@ -178,6 +183,18 @@ const handleSaveFileInfo = async (updatedFile) => {
 const handleCancelFileInfo = () => {
   fileInfoDialog.value.visible = false
   fileInfoDialog.value.currentFile = null
+}
+
+// 方法：处理排序
+const handleSort = (method) => {
+  if (sortMethod.value === method) {
+    // 如果点击的是当前已选中的排序方法，则切换升降序
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    // 如果点击的是新的排序方法，默认使用升序
+    sortMethod.value = method
+    sortOrder.value = 'asc'
+  }
 }
 
 // 方法：点击空白处隐藏右键菜单
