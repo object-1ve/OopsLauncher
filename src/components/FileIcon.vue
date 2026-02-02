@@ -42,7 +42,7 @@
         </div>
       </div>
 
-      <div class="file-name">
+      <div class="file-name" v-if="settings.appearance.showFileName">
         {{ file.displayName || getFileNameWithoutExtension(file.name) }}
       </div>
     </div>

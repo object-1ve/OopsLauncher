@@ -8,6 +8,7 @@
 <script setup>
 import { onMounted, onUnmounted, watch } from "vue";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
+import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettings } from "@/composables/useSettings";
 import { ElMessage } from "element-plus";
@@ -50,7 +51,7 @@ const sendNativeNotification = async (title, body) => {
   }
 };
 
-const registerShowHideShortcut = async () => {
+const registerShowHideShortcut = async (showSuccess = false) => {
   if (appWindow.label !== "main") return;
   const shortcut = settings.value.shortcuts.showHide;
   if (!shortcut) return;
@@ -69,6 +70,9 @@ const registerShowHideShortcut = async () => {
         await appWindow.setFocus();
       }
     });
+    if (showSuccess) {
+      ElMessage.success(`显示/隐藏快捷键已更新为: ${shortcut}`);
+    }
   } catch (err) {
     console.error("Failed to register show/hide shortcut:", err);
     if (err.includes("already registered")) {
@@ -80,7 +84,7 @@ const registerShowHideShortcut = async () => {
   }
 };
 
-const registerCopyTimeShortcut = async () => {
+const registerCopyTimeShortcut = async (showSuccess = false) => {
   if (appWindow.label !== "main") return;
   const shortcut = settings.value.shortcuts.copyTime;
   if (!shortcut) return;
@@ -112,6 +116,9 @@ const registerCopyTimeShortcut = async () => {
         console.error("Failed to copy time inside shortcut:", err);
       }
     });
+    if (showSuccess) {
+      ElMessage.success(`复制时间快捷键已更新为: ${shortcut}`);
+    }
   } catch (err) {
     console.error("Failed to register copy time shortcut:", err);
     if (err.includes("already registered")) {
@@ -123,7 +130,7 @@ const registerCopyTimeShortcut = async () => {
   }
 };
 
-const registerTestNotificationShortcut = async () => {
+const registerTestNotificationShortcut = async (showSuccess = false) => {
   if (appWindow.label !== "main") return;
   const shortcut = settings.value.shortcuts.testNotification;
   if (!shortcut) return;
@@ -140,6 +147,9 @@ const registerTestNotificationShortcut = async () => {
         `触发时间：${now.toLocaleString()}`
       );
     });
+    if (showSuccess) {
+      ElMessage.success(`测试通知快捷键已更新为: ${shortcut}`);
+    }
   } catch (err) {
     console.error("Failed to register test notification shortcut:", err);
     if (err.includes("already registered")) {
@@ -162,7 +172,7 @@ watch(
   () => settings.value.shortcuts.showHide,
   async (newVal, oldVal) => {
     if (oldVal) await unregister(oldVal).catch(() => {});
-    if (newVal) registerShowHideShortcut();
+    if (newVal) registerShowHideShortcut(true);
   }
 );
 
@@ -170,7 +180,7 @@ watch(
   () => settings.value.shortcuts.copyTime,
   async (newVal, oldVal) => {
     if (oldVal) await unregister(oldVal).catch(() => {});
-    if (newVal) registerCopyTimeShortcut();
+    if (newVal) registerCopyTimeShortcut(true);
   }
 );
 
@@ -178,7 +188,7 @@ watch(
   () => settings.value.shortcuts.testNotification,
   async (newVal, oldVal) => {
     if (oldVal) await unregister(oldVal).catch(() => {});
-    if (newVal) registerTestNotificationShortcut();
+    if (newVal) registerTestNotificationShortcut(true);
   }
 );
 
@@ -207,6 +217,9 @@ watch(
 
 onMounted(async () => {
   try {
+    // 检查是否是开机自启动（静默模式）
+    const isMinimized = await invoke("check_is_minimized");
+
     // 移除窗口动画 (参考 DawnLauncher)
     if (appWindow.label === "main") {
       await invoke("remove_window_animation").catch((e) =>
@@ -229,9 +242,25 @@ onMounted(async () => {
       skip: settings.value.general.hideTaskbar,
     }).catch((e) => console.error("Failed to init skip taskbar:", e));
 
-    // 3. 强制显示窗口
-    await appWindow.show();
-    await appWindow.setFocus();
+    // 初始化自启动状态（确保 UI 和系统设置一致）
+    const enabled = await isEnabled();
+    if (settings.value.general.autoStart) {
+      // 总是重新注册以更新可能的参数变化 (--minimized)
+      const args = settings.value.general.autoStartMinimized ? ["--minimized"] : [];
+      await enable(args).catch((e) => console.error("Failed to enable autostart:", e));
+    } else if (enabled) {
+      await disable().catch((e) => console.error("Failed to disable autostart:", e));
+    }
+
+    // 如果不是静默模式，则显示窗口
+    if (!isMinimized) {
+      await appWindow.show();
+      await appWindow.setFocus();
+    } else {
+      console.log("App started in minimized mode (autostart)");
+      // 确保窗口是隐藏的
+      await appWindow.hide();
+    }
   } catch (error) {
     console.error("Failed to initialize app:", error);
     await appWindow.show().catch(() => {});

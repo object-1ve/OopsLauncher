@@ -12,24 +12,17 @@
 
     <el-container class="settings-container">
       <el-aside width="160px" class="settings-aside">
-        <div class="aside-header">
-          <h3>设置</h3>
-        </div>
         <el-menu :default-active="activeTab" class="settings-menu" @select="handleSelect">
           <el-menu-item index="general">
-            <el-icon><Setting /></el-icon>
             <span>常规</span>
           </el-menu-item>
           <el-menu-item index="appearance">
-            <el-icon><Brush /></el-icon>
             <span>外观</span>
           </el-menu-item>
           <el-menu-item index="shortcuts">
-            <el-icon><Operation /></el-icon>
             <span>快捷键</span>
           </el-menu-item>
           <el-menu-item index="about">
-            <el-icon><InfoFilled /></el-icon>
             <span>关于</span>
           </el-menu-item>
         </el-menu>
@@ -41,13 +34,19 @@
             <h2 class="section-title">常规设置</h2>
             <el-form label-position="top">
               <el-form-item label="系统">
-                <el-checkbox v-model="settings.general.autoStart">开机自启动</el-checkbox>
-                <el-checkbox v-model="settings.general.minimizeToTray"
-                  >最小化到系统托盘</el-checkbox
-                >
-                <el-checkbox v-model="settings.general.hideTaskbar"
-                  >隐藏任务栏图标</el-checkbox
-                >
+                <div class="system-options">
+                  <el-checkbox v-model="settings.general.autoStart">开机自启动</el-checkbox>
+                  <el-checkbox 
+                    v-model="settings.general.autoStartMinimized" 
+                    :disabled="!settings.general.autoStart"
+                  >开机静默启动 (仅托盘)</el-checkbox>
+                  <el-checkbox v-model="settings.general.minimizeToTray"
+                    >最小化到系统托盘</el-checkbox
+                  >
+                  <el-checkbox v-model="settings.general.hideTaskbar"
+                    >隐藏任务栏图标</el-checkbox
+                  >
+                </div>
               </el-form-item>
               <el-form-item label="语言">
                 <el-select v-model="settings.general.language" style="width: 200px">
@@ -308,19 +307,28 @@ onUnmounted(() => {
 });
 
 // 开机启动
-const updateAutoStart = async (val) => {
-  if (val) {
-    await enable();
-  } else {
-    await disable();
+const updateAutoStart = async () => {
+  const isEnabled = settings.value.general.autoStart;
+  const isMinimized = settings.value.general.autoStartMinimized;
+  
+  try {
+    if (isEnabled) {
+      // 启用自启动，如果开启了静默启动则传入 --minimized 参数
+      const args = isMinimized ? ["--minimized"] : [];
+      await enable(args);
+    } else {
+      await disable();
+    }
+  } catch (err) {
+    console.error("Failed to update autostart:", err);
   }
 };
 
-// 监听开机启动设置
+// 监听开机启动相关设置
 watch(
-  () => settings.value.general.autoStart,
-  (val) => {
-    updateAutoStart(val);
+  [() => settings.value.general.autoStart, () => settings.value.general.autoStartMinimized],
+  () => {
+    updateAutoStart();
   }
 );
 
@@ -404,7 +412,6 @@ const handleShortcutKeyDown = (e, keyType) => {
 }
 
 .control-btn:hover {
-
 }
 
 .control-btn.close:hover {
@@ -470,6 +477,12 @@ const handleShortcutKeyDown = (e, keyType) => {
   font-size: 22px;
   font-weight: 600;
   color: #303133;
+}
+
+.system-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .theme-presets {

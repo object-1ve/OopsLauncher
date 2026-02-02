@@ -51,18 +51,18 @@
       <ul class="context-menu-list">
         <template v-if="sidebarContextMenu.item">
           <li class="context-menu-item" @click="handleRenameFromMenu">
-            <el-icon><Edit /></el-icon> 重命名
+             重命名
           </li>
           <li
             class="context-menu-item delete"
             @click="handleDeleteFromMenu"
           >
-            <el-icon><Delete /></el-icon> 删除
+             删除
           </li>
         </template>
         <template v-else>
           <li class="context-menu-item" @click="handleAddCategoryFromMenu">
-            <el-icon><Plus /></el-icon> 添加分类
+             添加分类
           </li>
         </template>
       </ul>

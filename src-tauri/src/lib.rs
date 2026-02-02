@@ -41,6 +41,7 @@ pub fn run() {
             commands::notification::send_notification_custom,
             commands::app::get_app_version,
             commands::app::set_skip_taskbar,
+            commands::app::check_is_minimized,
             commands::app::remove_window_animation,
         ])
         .setup(|app| {

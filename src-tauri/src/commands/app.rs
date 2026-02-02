@@ -11,6 +11,11 @@ pub fn set_skip_taskbar(window: Window, skip: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn check_is_minimized() -> bool {
+    std::env::args().any(|arg| arg == "--minimized")
+}
+
+#[tauri::command]
 pub fn remove_window_animation(window: Window) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {

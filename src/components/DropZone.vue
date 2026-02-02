@@ -1,36 +1,17 @@
 <template>
   <el-main class="drop-zone-main">
     <!-- 合并的拖拽和展示区域 -->
-    <div
-      class="drop-zone"
-      :class="{ dragover: isDragOver }"
-      @dragover="handleDragOver"
-      @dragleave="handleDragLeave"
-      @drop="handleDrop"
-      @contextmenu.prevent="handleEmptyContextMenu"
-    >
+    <div class="drop-zone" :class="{ dragover: isDragOver }" @dragover="handleDragOver" @dragleave="handleDragLeave"
+      @drop="handleDrop" @contextmenu.prevent="handleEmptyContextMenu">
       <!-- 图标展示区域 -->
       <div class="icons-container" v-if="currentFiles.length > 0">
         <div class="row-container" :class="settings.appearance.itemLayout">
-          <FileIcon
-            v-for="file in currentFiles"
-            :key="file.id"
-            :file="file"
-            class="file-icon-item"
-            @open="handleFileOpen"
-            @delete="handleFileDelete"
-            @contextmenu="handleFileContextMenu"
-          />
+          <FileIcon v-for="file in currentFiles" :key="file.id" :file="file" class="file-icon-item"
+            @open="handleFileOpen" @delete="handleFileDelete" @contextmenu="handleFileContextMenu" />
         </div>
-      </div>
+      </div>1
       <!-- 隐藏的文件输入 -->
-      <input
-        ref="fileInput"
-        type="file"
-        multiple
-        class="file-input"
-        @change="handleFileSelect"
-      />
+      <input ref="fileInput" type="file" multiple class="file-input" @change="handleFileSelect" />
     </div>
   </el-main>
 </template>
@@ -49,7 +30,6 @@ const props = defineProps({
     default: () => [],
   },
 });
-
 // Emits
 const emit = defineEmits(["fileAdd", "fileOpen", "fileDelete", "contextmenu"]);
 
@@ -111,8 +91,10 @@ const handleEmptyContextMenu = (e) => {
 
 <style scoped>
 .drop-zone-main {
-  padding: 0; /* 移除外层 padding */
-  height: 100%; /* 继承父容器高度 */
+  padding: 0;
+  /* 移除外层 padding */
+  height: 100%;
+  /* 继承父容器高度 */
   overflow: hidden;
 }
 
@@ -122,11 +104,13 @@ const handleEmptyContextMenu = (e) => {
 .file-icon-item {
   margin: 2px;
 }
+
 /* 拖拽区域样式 */
 .drop-zone {
   height: 100%;
   transition: all 0.3s ease;
-  padding: 0; /* 确保无内边距 */
+  padding: 0;
+  /* 确保无内边距 */
 }
 
 .drop-zone.dragover {
@@ -139,13 +123,15 @@ const handleEmptyContextMenu = (e) => {
 .icons-container {
   height: 100%;
   overflow-y: auto;
-  padding: 10px; /* 减小内边距 */
+  padding: 10px;
+  /* 减小内边距 */
 }
 
 .row-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 0; /* 移除 flex gap */
+  gap: 0;
+  /* 移除 flex gap */
 }
 
 .row-container.list {
@@ -154,7 +140,8 @@ const handleEmptyContextMenu = (e) => {
 
 /* 图标项样式覆盖 */
 .file-icon-item {
-  margin: 0 4px 16px 4px; /* 上 右 下 左 */
+  margin: 0 4px 16px 4px;
+  /* 上 右 下 左 */
 }
 
 .list .file-icon-item {
@@ -165,13 +152,16 @@ const handleEmptyContextMenu = (e) => {
 .icons-container::-webkit-scrollbar {
   width: 6px;
 }
+
 .icons-container::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.1);
   border-radius: 3px;
 }
+
 .icons-container::-webkit-scrollbar-track {
   background-color: transparent;
 }
+
 /* 文件输入样式 */
 .file-input {
   display: none;

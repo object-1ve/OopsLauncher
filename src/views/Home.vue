@@ -18,11 +18,13 @@
       :selectedFile="contextMenu.selectedFile"
       :sortMethod="sortMethod"
       :sortOrder="sortOrder"
+      :showFileName="settings.appearance.showFileName"
       @delete="handleContextMenuDelete"
       @hide="hideContextMenu"
       @openLocation="handleOpenLocation"
       @editInfo="handleEditInfo"
       @sort="handleSort"
+      @toggleDisplay="handleToggleDisplay"
     />
     
     <!-- 文件信息编辑弹窗 -->
@@ -41,6 +43,7 @@ import DropZone from '@/components/DropZone.vue'
 import ContextMenu from '@/components/ContextMenu.vue'
 import FileInfoDialog from '@/components/FileInfoDialog.vue'
 import { useFiles } from '@/composables/useFiles'
+import { useSettings } from '@/composables/useSettings'
 import { invoke } from '@tauri-apps/api/core'
 import { ElMessage } from 'element-plus'
 
@@ -56,6 +59,8 @@ const {
   sortMethod,
   sortOrder
 } = useFiles()
+
+const { settings } = useSettings()
 
 const contextMenu = ref({
   visible: false,
@@ -194,6 +199,13 @@ const handleSort = (method) => {
     // 如果点击的是新的排序方法，默认使用升序
     sortMethod.value = method
     sortOrder.value = 'asc'
+  }
+}
+
+// 方法：处理显示配置切换
+const handleToggleDisplay = (key) => {
+  if (key === 'showFileName') {
+    settings.value.appearance.showFileName = !settings.value.appearance.showFileName
   }
 }
 

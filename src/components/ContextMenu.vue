@@ -2,20 +2,28 @@
   <!-- 右键菜单 -->
   <div v-if="visible" class="context-menu" :style="menuStyle" ref="menuRef">
     <ul class="context-menu-list">
+      <!-- 文件操作项 -->
       <template v-if="selectedFileId">
-        <li @click="handleOpenLocation" class="context-menu-item">打开文件所在位置</li>
-        <li @click="handleEditInfo" class="context-menu-item">编辑信息</li>
-        <li @click="handleDelete" class="context-menu-item">删除</li>
+        <li @click="handleOpenLocation" class="context-menu-item">
+          打开文件所在位置
+        </li>
+        <li @click="handleEditInfo" class="context-menu-item">
+          编辑信息
+        </li>
+        <li @click="handleDelete" class="context-menu-item">
+          删除
+        </li>
+        <li class="context-menu-divider"></li>
       </template>
 
-      <li class="context-menu-item submenu-parent" v-else>
+      <!-- 排序方式 (始终显示) -->
+      <li class="context-menu-item submenu-parent">
         <div class="menu-item-content">
           排序方式
           <el-icon class="arrow-icon"><ArrowRight /></el-icon>
         </div>
         <ul class="context-submenu">
           <li @click="handleSort('name')" class="context-menu-item" :class="{ active: sortMethod === 'name' }">
-            
             <span>按名称排序</span>
             <el-icon v-if="sortMethod === 'name'" class="order-icon">
               <Top v-if="sortOrder === 'asc'" />
@@ -23,7 +31,6 @@
             </el-icon>
           </li>
           <li @click="handleSort('openCount')" class="context-menu-item" :class="{ active: sortMethod === 'openCount' }">
-            
             <span>按打开次数排序</span>
             <el-icon v-if="sortMethod === 'openCount'" class="order-icon">
               <Top v-if="sortOrder === 'asc'" />
@@ -31,12 +38,25 @@
             </el-icon>
           </li>
           <li @click="handleSort('created_at')" class="context-menu-item" :class="{ active: sortMethod === 'created_at' }">
-            
             <span>按创建时间排序</span>
             <el-icon v-if="sortMethod === 'created_at'" class="order-icon">
               <Top v-if="sortOrder === 'asc'" />
               <Bottom v-else />
             </el-icon>
+          </li>
+        </ul>
+      </li>
+
+      <!-- 显示设置 (始终显示) -->
+      <li class="context-menu-item submenu-parent">
+        <div class="menu-item-content">
+          显示
+          <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+        </div>
+        <ul class="context-submenu">
+          <li @click="handleToggleDisplay('showFileName')" class="context-menu-item">
+            <el-icon class="check-icon"><Check v-if="showFileName" /></el-icon>
+            <span>文件名称</span>
           </li>
         </ul>
       </li>
@@ -47,15 +67,10 @@
 <script setup>
 import { ref, computed, nextTick, watch } from "vue";
 import {
-  Folder,
-  Edit,
-  Delete,
-  Sort,
-  Histogram,
-  Calendar,
   ArrowRight,
   Bottom,
   Top,
+  Check,
 } from "@element-plus/icons-vue";
 
 // Props
@@ -86,12 +101,16 @@ const props = defineProps({
   },
   sortOrder: {
     type: String,
-    default: "asc",
+    default: 'asc'
   },
+  showFileName: {
+    type: Boolean,
+    default: true
+  }
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation", "editInfo", "sort"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "editInfo", "sort", "toggleDisplay"]);
 
 // 菜单元素引用
 const menuRef = ref(null);
@@ -177,6 +196,12 @@ const handleSort = (method) => {
   emit("sort", method);
   emit("hide");
 };
+
+// 方法：处理显示切换
+const handleToggleDisplay = (key) => {
+  emit("toggleDisplay", key);
+  emit("hide");
+};
 </script>
 
 <style scoped>
@@ -255,6 +280,11 @@ const handleSort = (method) => {
 .order-icon {
   margin-left: auto;
   font-size: 14px;
+}
+
+.check-icon {
+  width: 14px;
+  margin-right: 8px;
 }
 
 .context-submenu {

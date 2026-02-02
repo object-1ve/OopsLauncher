@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 const defaultSettings = {
   general: {
     autoStart: false,
+    autoStartMinimized: true,
     minimizeToTray: true,
     hideTaskbar: false,
     language: 'zh-CN',
@@ -12,6 +13,7 @@ const defaultSettings = {
     transparency: 1.0,
     itemLayout: 'tile', // 'tile' or 'list'
     iconSize: 48,
+    showFileName: true,
     css: {
       primaryColor: '#409EFF',
       secondaryColor: '#67C23A',
