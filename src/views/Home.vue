@@ -44,6 +44,7 @@ import ContextMenu from '@/components/ContextMenu.vue'
 import FileInfoDialog from '@/components/FileInfoDialog.vue'
 import { useFiles } from '@/composables/useFiles'
 import { useSettings } from '@/composables/useSettings'
+import { useContextMenu } from '@/composables/useContextMenu'
 import { invoke } from '@tauri-apps/api/core'
 import { ElMessage } from 'element-plus'
 
@@ -61,6 +62,7 @@ const {
 } = useFiles()
 
 const { settings } = useSettings()
+const { registerMenu, unregisterMenu } = useContextMenu()
 
 const contextMenu = ref({
   visible: false,
@@ -108,6 +110,7 @@ const handleContextMenu = (data) => {
     }
   }
   
+  registerMenu(hideContextMenu)
   contextMenu.value = {
     visible: true,
     x: data.event.clientX,
