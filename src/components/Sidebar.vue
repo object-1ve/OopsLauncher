@@ -74,6 +74,7 @@
 import { ref, reactive, nextTick, watch, computed, onMounted, onUnmounted } from "vue";
 import { Plus, Edit, Setting, Delete } from "@element-plus/icons-vue";
 import { useFiles } from "@/composables/useFiles";
+import { useContextMenu } from "@/composables/useContextMenu";
 import SidebarItem from "./SidebarItem.vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { ElMessageBox, ElMessage } from "element-plus";
@@ -91,6 +92,7 @@ const props = defineProps({
 const emit = defineEmits(["categoryChange"]);
 
 const { allCategories, addCategory, deleteCategory, updateCategoryOrder } = useFiles();
+const { registerMenu, unregisterMenu } = useContextMenu();
 
 // 侧边栏元素引用
 const menuItemsRef = ref(null);
@@ -141,6 +143,7 @@ const handleSidebarContextMenu = (e) => {
     e.target.classList.contains("sidebar-menu") ||
     e.target.classList.contains("menu-items")
   ) {
+    registerMenu(hideContextMenu);
     sidebarContextMenu.value.visible = true;
     sidebarContextMenu.value.x = e.clientX;
     sidebarContextMenu.value.y = e.clientY;
@@ -151,6 +154,7 @@ const handleSidebarContextMenu = (e) => {
 
 // 处理项右键
 const handleItemContextMenu = ({ event, item, startRename }) => {
+  registerMenu(hideContextMenu);
   sidebarContextMenu.value.visible = true;
   sidebarContextMenu.value.x = event.clientX;
   sidebarContextMenu.value.y = event.clientY;
@@ -161,6 +165,7 @@ const handleItemContextMenu = ({ event, item, startRename }) => {
 // 隐藏右键菜单
 const hideContextMenu = () => {
   sidebarContextMenu.value.visible = false;
+  unregisterMenu();
 };
 
 // 从菜单添加分类

@@ -207,6 +207,8 @@ watch(
 watch(
   () => settings.value.general.hideTaskbar,
   async (val) => {
+    // 仅在主窗口执行任务栏隐藏逻辑
+    if (appWindow.label !== "main") return;
     try {
       await invoke("set_skip_taskbar", { skip: val });
     } catch (err) {
@@ -230,36 +232,41 @@ onMounted(async () => {
     // 只在主窗口注册快捷键，避免多窗口重复注册冲突
     if (appWindow.label === "main") {
       await registerAllShortcuts();
-    }
 
-    // 应用透明度
-    if (appWindow && typeof appWindow.setOpacity === "function") {
-      await appWindow.setOpacity(settings.value.appearance.transparency);
-    }
+      // 初始化任务栏显示状态
+      await invoke("set_skip_taskbar", {
+        skip: settings.value.general.hideTaskbar,
+      }).catch((e) => console.error("Failed to init skip taskbar:", e));
 
-    // 初始化任务栏显示状态
-    await invoke("set_skip_taskbar", {
-      skip: settings.value.general.hideTaskbar,
-    }).catch((e) => console.error("Failed to init skip taskbar:", e));
+      // 初始化自启动状态（确保 UI 和系统设置一致）
+      const enabled = await isEnabled();
+      if (settings.value.general.autoStart) {
+        // 总是重新注册以更新可能的参数变化 (--minimized)
+        const args = settings.value.general.autoStartMinimized
+          ? ["--minimized"]
+          : [];
+        await enable(args).catch((e) =>
+          console.error("Failed to enable autostart:", e)
+        );
+      } else if (enabled) {
+        await disable().catch((e) =>
+          console.error("Failed to disable autostart:", e)
+        );
+      }
 
-    // 初始化自启动状态（确保 UI 和系统设置一致）
-    const enabled = await isEnabled();
-    if (settings.value.general.autoStart) {
-      // 总是重新注册以更新可能的参数变化 (--minimized)
-      const args = settings.value.general.autoStartMinimized ? ["--minimized"] : [];
-      await enable(args).catch((e) => console.error("Failed to enable autostart:", e));
-    } else if (enabled) {
-      await disable().catch((e) => console.error("Failed to disable autostart:", e));
-    }
-
-    // 如果不是静默模式，则显示窗口
-    if (!isMinimized) {
+      // 如果不是静默模式，则显示窗口
+      if (!isMinimized) {
+        await appWindow.show();
+        await appWindow.setFocus();
+      } else {
+        console.log("App started in minimized mode (autostart)");
+        // 确保窗口是隐藏的
+        await appWindow.hide();
+      }
+    } else {
+      // 其他窗口（如设置窗口）直接显示
       await appWindow.show();
       await appWindow.setFocus();
-    } else {
-      console.log("App started in minimized mode (autostart)");
-      // 确保窗口是隐藏的
-      await appWindow.hide();
     }
   } catch (error) {
     console.error("Failed to initialize app:", error);
