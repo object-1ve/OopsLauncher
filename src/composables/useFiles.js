@@ -374,6 +374,30 @@ export function useFiles() {
     saveFiles()
   }
 
+  // 复制文件到指定分类
+  const copyFileToCategory = async (file, targetCategoryId) => {
+    if (!file || !targetCategoryId) return { success: false }
+    if (file.category === targetCategoryId) return { success: false }
+    // 确保目标分类存在
+    if (!filesByCategory.value[targetCategoryId]) return { success: false }
+    // 去重检查：目标分类是否已有相同 path 的文件
+    if (filesByCategory.value[targetCategoryId].some(f => f.path === file.path)) {
+      return { success: false, reason: 'duplicate' }
+    }
+    // 深拷贝 + 新 ID + 新分类 + 重置 openCount 和 created_at
+    const newId = Date.now() + Math.random().toString(36).substr(2, 9)
+    const copiedFile = {
+      ...file,
+      id: newId,
+      category: targetCategoryId,
+      openCount: 0,
+      created_at: Date.now()
+    }
+    filesByCategory.value[targetCategoryId].push(copiedFile)
+    await saveFiles()
+    return { success: true }
+  }
+
   const openFile = async (file) => {
     try {
       console.log(`Opening file: ${file.path}`)
@@ -447,6 +471,7 @@ export function useFiles() {
     processFiles,
     deleteFile,
     openFile,
+    copyFileToCategory,
     setupTauriListeners,
     saveFiles,
     sortMethod,

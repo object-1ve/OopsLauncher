@@ -19,12 +19,14 @@
       :sortMethod="sortMethod"
       :sortOrder="sortOrder"
       :showFileName="settings.appearance.showFileName"
+      :categories="allCategories"
       @delete="handleContextMenuDelete"
       @hide="hideContextMenu"
       @openLocation="handleOpenLocation"
       @editInfo="handleEditInfo"
       @sort="handleSort"
       @toggleDisplay="handleToggleDisplay"
+      @copyToCategory="handleCopyToCategory"
     />
     
     <!-- 文件信息编辑弹窗 -->
@@ -58,7 +60,9 @@ const {
   setupTauriListeners,
   saveFiles,
   sortMethod,
-  sortOrder
+  sortOrder,
+  allCategories,
+  copyFileToCategory
 } = useFiles()
 
 const { settings } = useSettings()
@@ -210,6 +214,18 @@ const handleToggleDisplay = (key) => {
   if (key === 'showFileName') {
     settings.value.appearance.showFileName = !settings.value.appearance.showFileName
   }
+}
+
+// 方法：处理复制文件到其他分类
+const handleCopyToCategory = async ({ file, targetCategoryId }) => {
+  const result = await copyFileToCategory(file, targetCategoryId)
+  const targetCat = allCategories.value.find(c => c.id === targetCategoryId)
+  if (result.success) {
+    ElMessage.success(`已复制到「${targetCat?.name || targetCategoryId}」`)
+  } else if (result.reason === 'duplicate') {
+    ElMessage.warning(`文件已存在于「${targetCat?.name || targetCategoryId}」中`)
+  }
+  hideContextMenu()
 }
 
 // 方法：点击空白处隐藏右键菜单

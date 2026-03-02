@@ -13,6 +13,25 @@
         <li @click="handleDelete" class="context-menu-item">
           删除
         </li>
+
+        <!-- 复制到其他分类 -->
+        <li v-if="targetCategories.length > 0" class="context-menu-item submenu-parent">
+          <div class="menu-item-content">
+            复制到
+            <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+          </div>
+          <ul class="context-submenu" style="max-height: 200px; overflow-y: auto;">
+            <li
+              v-for="cat in targetCategories"
+              :key="cat.id"
+              @click="handleCopyToCategory(cat.id)"
+              class="context-menu-item"
+            >
+              {{ cat.name }}
+            </li>
+          </ul>
+        </li>
+
         <li class="context-menu-divider"></li>
       </template>
 
@@ -106,11 +125,15 @@ const props = defineProps({
   showFileName: {
     type: Boolean,
     default: true
+  },
+  categories: {
+    type: Array,
+    default: () => []
   }
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation", "editInfo", "sort", "toggleDisplay"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "editInfo", "sort", "toggleDisplay", "copyToCategory"]);
 
 // 菜单元素引用
 const menuRef = ref(null);
@@ -202,6 +225,19 @@ const handleToggleDisplay = (key) => {
   emit("toggleDisplay", key);
   emit("hide");
 };
+
+// 过滤掉文件当前所在分类，只显示其他可复制目标
+const targetCategories = computed(() => {
+  return props.categories.filter(c => c.id !== props.selectedFile?.category)
+})
+
+// 方法：处理复制到分类
+const handleCopyToCategory = (targetCategoryId) => {
+  if (props.selectedFile) {
+    emit('copyToCategory', { file: props.selectedFile, targetCategoryId })
+    emit('hide')
+  }
+}
 </script>
 
 <style scoped>
