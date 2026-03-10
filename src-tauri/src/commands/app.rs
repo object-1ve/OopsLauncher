@@ -38,3 +38,8 @@ pub fn remove_window_animation(window: Window) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn exit_app(app: AppHandle) {
+    app.exit(0);
+}

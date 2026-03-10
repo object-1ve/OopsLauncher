@@ -7,7 +7,7 @@ pub mod commands;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -43,6 +43,7 @@ pub fn run() {
             commands::app::set_skip_taskbar,
             commands::app::check_is_minimized,
             commands::app::remove_window_animation,
+            commands::app::exit_app,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -70,7 +71,9 @@ pub fn run() {
                         }
                     }
                     "quit" => {
-                        app.exit(0);
+                        // 发送退出事件给前端，让前端有机会保存数据
+                        let _ = app.emit("request-exit", ());
+                        // 这里不再直接调用 exit，由前端保存完成后调用 exit_app
                     }
                     _ => {}
                 })
@@ -99,6 +102,15 @@ pub fn run() {
                 .build(app)?;
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // 如果是主窗口，隐藏而不是退出
+                if window.label() == "main" {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

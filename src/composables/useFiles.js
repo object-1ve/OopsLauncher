@@ -184,7 +184,16 @@ export function useFiles() {
     return iconMap[ext] || '📄'
   }
 
+  let isSaving = false;
+  let savePending = false;
+
   const saveFiles = async () => {
+    if (isSaving) {
+      savePending = true;
+      return;
+    }
+    isSaving = true;
+    
     try {
       if (isTauri()) {
         const allFiles = []
@@ -211,6 +220,12 @@ export function useFiles() {
     } catch (error) {
       console.error('Failed to save files:', error)
       localStorage.setItem('oopslauncher_files', JSON.stringify(filesByCategory.value))
+    } finally {
+      isSaving = false;
+      if (savePending) {
+        savePending = false;
+        await saveFiles();
+      }
     }
   }
 
@@ -266,6 +281,19 @@ export function useFiles() {
       }
 
       const loaded = await invoke('load_files_from_db')
+      
+      // 如果数据库返回空列表，但 localStorage 有数据，说明可能发生了数据库丢失或同步问题
+      if (!loaded || loaded.length === 0) {
+        const saved = localStorage.getItem('oopslauncher_files')
+        if (saved) {
+          console.warn('Database is empty, falling back to localStorage');
+          filesByCategory.value = JSON.parse(saved)
+          // 重新保存到数据库
+          await saveFiles()
+          return
+        }
+      }
+
       const organizedFiles = {}
       
       // Ensure all custom categories are present in filesByCategory
@@ -369,9 +397,9 @@ export function useFiles() {
     };
   }
 
-  const deleteFile = (id) => {
+  const deleteFile = async (id) => {
     filesByCategory.value[currentCategory.value] = filesByCategory.value[currentCategory.value].filter(file => file.id !== id)
-    saveFiles()
+    await saveFiles()
   }
 
   // 复制文件到指定分类
@@ -401,7 +429,7 @@ export function useFiles() {
   const openFile = async (file) => {
     try {
       console.log(`Opening file: ${file.path}`)
-      if (window.__TAURI_INTERNALS__?.invoke) {
+      if (isTauri()) {
         await invoke('open_path', { path: file.path })
       } else {
         window.open(file.path, '_blank')
@@ -413,7 +441,7 @@ export function useFiles() {
       if (filesInCategory) {
         const fileIndex = filesInCategory.findIndex(f => f.id === file.id)
         if (fileIndex !== -1) {
-          const updatedFile = filesInCategory[fileIndex]
+          const updatedFile = { ...filesInCategory[fileIndex] }
           updatedFile.openCount = (updatedFile.openCount || 0) + 1
           filesInCategory[fileIndex] = updatedFile
           await saveFiles()

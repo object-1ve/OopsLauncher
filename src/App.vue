@@ -11,6 +11,8 @@ import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettings } from "@/composables/useSettings";
+import { useFiles } from "@/composables/useFiles";
+import { listen } from "@tauri-apps/api/event";
 import { ElMessage } from "element-plus";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
@@ -21,6 +23,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 
 const { settings } = useSettings();
+const { saveFiles } = useFiles();
 const appWindow = getCurrentWebviewWindow();
 
 // 发送原生系统通知
@@ -263,6 +266,19 @@ onMounted(async () => {
         // 确保窗口是隐藏的
         await appWindow.hide();
       }
+
+      // 监听退出请求
+      await listen("request-exit", async () => {
+        console.log("Received request-exit, saving data...");
+        try {
+          await saveFiles();
+          console.log("Data saved, exiting...");
+        } catch (e) {
+          console.error("Failed to save data during exit:", e);
+        } finally {
+          await invoke("exit_app");
+        }
+      });
     } else {
       // 其他窗口（如设置窗口）直接显示
       await appWindow.show();
