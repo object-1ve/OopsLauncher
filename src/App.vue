@@ -2,6 +2,9 @@
   <div id="app" @contextmenu.prevent>
     <!-- 路由视图 -->
     <router-view />
+    
+    <!-- 全局搜索遮罩层 -->
+    <SearchOverlay />
   </div>
 </template>
 
@@ -15,6 +18,7 @@ import { useFiles } from "@/composables/useFiles";
 import { listen } from "@tauri-apps/api/event";
 import { ElMessage } from "element-plus";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import SearchOverlay from "@/components/SearchOverlay.vue";
 import {
   isPermissionGranted,
   requestPermission,

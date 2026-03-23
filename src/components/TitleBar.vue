@@ -11,6 +11,9 @@
     </div>
 
     <div class="titlebar-controls">
+      <div class="titlebar-button search" @click="toggleSearch">
+        <el-icon><Search /></el-icon>
+      </div>
       <div class="titlebar-button settings" @click="openSettings">
         <el-icon><Setting /></el-icon>
       </div>
@@ -27,13 +30,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import { Window } from "@tauri-apps/api/window";
-import { Minus, CopyDocument, FullScreen, Close, Setting } from "@element-plus/icons-vue";
+import { Minus, CopyDocument, FullScreen, Close, Setting, Search } from "@element-plus/icons-vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useFiles } from "@/composables/useFiles";
 
 const appWindow = new Window("main");
 const isMaximized = ref(false);
+const { showSearchOverlay } = useFiles();
+
+const toggleSearch = () => {
+  showSearchOverlay.value = !showSearchOverlay.value;
+};
 
 const openSettings = async () => {
   // 先尝试获取已存在的设置窗口
@@ -126,6 +135,7 @@ onMounted(async () => {
 .titlebar-controls {
   display: flex;
   height: 100%;
+  align-items: center;
 }
 
 .titlebar-button {

@@ -31,8 +31,8 @@ mod win_icon {
                     .map_err(|e| format!("Failed to create shell item: {}", e))?
             };
 
-            // 尝试获取 256x256 的大图标
-            let mut image_buffer = get_image_buffer(&shell_item_image_factory, 256)?;
+            // 尝试获取 128x128 的大图标（之前是 256，128 已经足够且减少了数据量）
+            let mut image_buffer = get_image_buffer(&shell_item_image_factory, 128)?;
 
             // 参考 DawnLauncher 的逻辑：检查透明度比例
             // 如果透明区域太大，说明可能是小图标拉伸的，改用 48x48

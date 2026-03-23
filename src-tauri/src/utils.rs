@@ -1,23 +1,38 @@
 use std::env;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+
+#[cfg(target_os = "windows")]
+use windows::{
+    core::{HSTRING, PCWSTR, ComInterface},
+    Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, IPersistFile, STGM},
+    Win32::UI::Shell::{IShellLinkW, ShellLink},
+    Win32::Foundation::MAX_PATH,
+};
 
 pub fn resolve_shortcut(path: &str) -> String {
     #[cfg(target_os = "windows")]
     {
         if path.to_lowercase().ends_with(".lnk") {
-            let output = Command::new("powershell")
-                .args([
-                    "-NoProfile",
-                    "-Command",
-                    &format!("$shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut('{}'); $shortcut.TargetPath", path)
-                ])
-                .output();
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+                let result = (|| -> windows::core::Result<String> {
+                    let shell_link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
+                    let persist_file: IPersistFile = shell_link.cast()?;
+                    let h_path = HSTRING::from(path);
+                    persist_file.Load(PCWSTR(h_path.as_ptr()), STGM(0))?;
 
-            if let Ok(out) = output {
-                let target = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !target.is_empty() && Path::new(&target).exists() {
-                    return target;
+                    let mut buffer = [0u16; MAX_PATH as usize];
+                    shell_link.GetPath(&mut buffer, std::ptr::null_mut(), 0)?;
+                    
+                    let target = String::from_utf16_lossy(&buffer);
+                    let target = target.trim_matches(char::from(0)).to_string();
+                    Ok(target)
+                })();
+                CoUninitialize();
+                if let Ok(target) = result {
+                    if !target.is_empty() && Path::new(&target).exists() {
+                        return target;
+                    }
                 }
             }
         }
@@ -26,6 +41,7 @@ pub fn resolve_shortcut(path: &str) -> String {
 }
 
 pub fn to_abs_path(path: &str) -> Result<String, String> {
+    let path = path.trim();
     let p = Path::new(path);
     let abs: PathBuf = if p.is_absolute() {
         p.to_path_buf()

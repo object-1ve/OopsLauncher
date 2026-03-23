@@ -28,8 +28,31 @@ const filesByCategory = ref({
 })
 const sortMethod = ref('openCount') // 默认按打开次数排序
 const sortOrder = ref('desc') // 默认降序
+const searchQuery = ref('') // 搜索关键词
+const showSearchOverlay = ref(false) // 是否显示搜索遮罩层
 
 // Computed
+const globalSearchResults = computed(() => {
+  if (!searchQuery.value) return []
+  const query = searchQuery.value.toLowerCase()
+  // 展平所有分类的文件
+  const allFiles = Object.values(filesByCategory.value).flat()
+  
+  const results = allFiles.filter(file => 
+    (file.displayName && file.displayName.toLowerCase().includes(query)) ||
+    (file.name && file.name.toLowerCase().includes(query)) ||
+    (file.path && file.path.toLowerCase().includes(query))
+  )
+  
+  // 结果去重（按路径）
+  const seenPaths = new Set()
+  return results.filter(file => {
+    if (seenPaths.has(file.path)) return false
+    seenPaths.add(file.path)
+    return true
+  })
+})
+
 const currentFiles = computed(() => {
   const files = filesByCategory.value[currentCategory.value] || []
   
@@ -57,6 +80,10 @@ const allCategories = computed({
   }
 })
 
+const generateId = () => {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
 export function useFiles() {
   
   // Methods
@@ -67,7 +94,7 @@ export function useFiles() {
     const existing = customCategories.value.find(c => c.name === name)
     if (existing) return
 
-    const id = Date.now().toString()
+    const id = generateId()
     const newCategory = {
       id: id,
       parent_id: null,
@@ -353,7 +380,7 @@ export function useFiles() {
         try {
           const path = file.path || file.name;
           fileInfo = await invoke('get_file_info', { path });
-          fileInfo.id = Date.now() + Math.random().toString(36).substr(2, 9);
+          fileInfo.id = generateId();
           if (!fileInfo.icon || fileInfo.icon === '') {
             fileInfo.icon = await getFileIcon({ name: fileInfo.name });
           }
@@ -365,7 +392,7 @@ export function useFiles() {
 
       if (!fileInfo) {
         fileInfo = {
-          id: Date.now() + Math.random().toString(36).substr(2, 9),
+          id: generateId(),
           name: file.name,
           display_name: generateDisplayName(file.name),
           path: file.path || file.webkitRelativePath || file.name, 
@@ -413,7 +440,7 @@ export function useFiles() {
       return { success: false, reason: 'duplicate' }
     }
     // 深拷贝 + 新 ID + 新分类 + 重置 openCount 和 created_at
-    const newId = Date.now() + Math.random().toString(36).substr(2, 9)
+    const newId = generateId()
     const copiedFile = {
       ...file,
       id: newId,
@@ -466,7 +493,7 @@ export function useFiles() {
             if (!filesByCategory.value[currentCategory.value].some(f => f.path === path)) {
               try {
                 const fileInfo = await invoke('get_file_info', { path })
-                fileInfo.id = Date.now() + Math.random().toString(36).substr(2, 9)
+                fileInfo.id = generateId()
                 if (!fileInfo.icon || fileInfo.icon === '') {
                   fileInfo.icon = await getFileIcon({ name: fileInfo.name })
                 }
@@ -503,6 +530,9 @@ export function useFiles() {
     setupTauriListeners,
     saveFiles,
     sortMethod,
-    sortOrder
+    sortOrder,
+    searchQuery,
+    globalSearchResults,
+    showSearchOverlay
   }
 }

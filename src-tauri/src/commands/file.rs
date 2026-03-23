@@ -24,50 +24,47 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
         "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).map_err(|e| e.to_string())?;
 
-    for mut file in files {
-        // 尝试处理每个文件，跳过失败的文件
-        match to_abs_path(&file.path) {
-            Ok(abs_path) => {
-                file.path = abs_path;
-                
-                // 获取分类 ID，如果没有则默认为 main
-                let category_id = match file.category.as_ref() {
-                    Some(id) => id,
-                    None => "main"
-                };
-                
-                // 获取当前时间作为创建时间（如果前端没传）
-                let created_at = file.created_at.unwrap_or_else(|| {
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis() as i64
-                });
-                
-                // 尝试执行插入
-                if let Err(e) = stmt.execute(
-                    params![
-                        &file.id,
-                        &file.name,
-                        &file.display_name,
-                        &file.path,
-                        file.size as i64,
-                        &file.r#type,
-                        &file.icon,
-                        &file.content,
-                        category_id,
-                        file.open_count.unwrap_or(0) as i64,
-                        created_at
-                    ]
-                ) {
-                    println!("Failed to save file {} to DB: {}", file.name, e);
-                    continue;
-                }
-            },
-            Err(e) => {
-                println!("Failed to resolve path for file {}: {}", file.name, e);
-                continue;
-            }
+    for file in files {
+        // 直接使用前端传来的路径，不再调用 to_abs_path 重新解析
+        // get_file_info 已经在获取时规范化过路径，重复调用可能因 canonicalize 失败而导致跳过
+        let path = file.path.trim().to_string();
+        if path.is_empty() {
+            println!("Skipping file with empty path: {}", file.name);
+            continue;
+        }
+
+        // 获取分类 ID，如果没有则默认为 main
+        let category_id = match file.category.as_ref() {
+            Some(id) => id,
+            None => "main"
+        };
+        
+        // 获取当前时间作为创建时间（如果前端没传）
+        let created_at = file.created_at.unwrap_or_else(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64
+        });
+        
+        // 尝试执行插入
+        if let Err(e) = stmt.execute(
+            params![
+                &file.id,
+                &file.name,
+                &file.display_name,
+                &path,
+                file.size as i64,
+                &file.r#type,
+                &file.icon,
+                &file.content,
+                category_id,
+                file.open_count.unwrap_or(0) as i64,
+                created_at
+            ]
+        ) {
+            println!("Failed to save file {} to DB: {}", file.name, e);
+            continue;
         }
     }
     
