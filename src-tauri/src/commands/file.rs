@@ -21,7 +21,7 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
     
     // 插入新数据
     let mut stmt = tx.prepare(
-        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).map_err(|e| e.to_string())?;
 
     for file in files {
@@ -48,7 +48,7 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
         });
         
         // 尝试执行插入
-        if let Err(e) = stmt.execute(
+        stmt.execute(
             params![
                 &file.id,
                 &file.name,
@@ -60,20 +60,25 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
                 &file.content,
                 category_id,
                 file.open_count.unwrap_or(0) as i64,
-                created_at
+                created_at,
+                &file.notes
             ]
-        ) {
+        ).map_err(|e| {
             println!("Failed to save file {} to DB: {}", file.name, e);
-            continue;
-        }
+            format!("Failed to save file {}: {}", file.name, e)
+        })?;
     }
     
     // 释放 statement
     drop(stmt);
 
     // 提交事务
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| {
+        println!("Failed to commit transaction: {}", e);
+        e.to_string()
+    })?;
     
+    println!("Successfully saved all files to database.");
     Ok(())
 }
 
@@ -83,25 +88,38 @@ pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String
     println!("Loading files from database...");
     let conn = get_db_connection(&app)?;
     
-    let mut stmt = conn.prepare("SELECT id, name, display_name, path, size, type, icon, content, category, open_count, created_at FROM files ORDER BY open_count DESC")
+    let mut stmt = conn.prepare("SELECT id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes FROM files ORDER BY open_count DESC")
         .map_err(|e| {
             println!("Failed to prepare select statement: {}", e);
             e.to_string()
         })?;
     
     let files_iter = stmt.query_map([], |row| {
+        let name: String = row.get(1)?;
+        let display_name: Option<String> = row.get(2)?;
+        let path: String = row.get(3)?;
+        let size: i64 = row.get(4).unwrap_or(0);
+        let r#type: String = row.get(5).unwrap_or_else(|_| "".to_string());
+        let icon: String = row.get(6).unwrap_or_else(|_| "".to_string());
+        let content: Option<String> = row.get(7).ok();
+        let category: Option<String> = row.get(8).ok();
+        let open_count: i64 = row.get(9).unwrap_or(0);
+        let created_at: Option<i64> = row.get(10).ok();
+        let notes: Option<String> = row.get(11).ok();
+
         Ok(FileInfo {
             id: row.get(0)?,
-            name: row.get(1)?,
-            display_name: row.get(2)?,
-            path: row.get(3)?,
-            size: row.get::<_, i64>(4)? as u64,
-            r#type: row.get(5)?,
-            icon: row.get(6)?,
-            content: row.get(7)?,
-            category: Some(row.get(8)?),
-            open_count: Some(row.get::<_, i64>(9)? as u64),
-            created_at: row.get(10)?,
+            name,
+            display_name: display_name.unwrap_or_else(|| "".to_string()),
+            path,
+            size: size as u64,
+            r#type,
+            icon,
+            content,
+            category,
+            open_count: Some(open_count as u64),
+            created_at,
+            notes,
         })
     }).map_err(|e| {
         println!("Failed to query files: {}", e);
@@ -123,9 +141,15 @@ pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String
 #[tauri::command]
 pub fn get_file_info(path: String) -> Result<FileInfo, String> {
     let abs_path = to_abs_path(&path)?;
-    
+    let original_p = Path::new(&abs_path);
+    let original_name = original_p.file_name()
+        .ok_or("Invalid file name")?
+        .to_string_lossy()
+        .to_string();
+
     // 解析快捷方式
     let target_path = resolve_shortcut(&abs_path);
+    let is_shortcut = target_path != abs_path;
     let p = Path::new(&target_path);
     
     if !p.exists() {
@@ -163,17 +187,21 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
         }
     }
 
-    // 生成 display_name，去掉常见后缀
-    let display_name = if let Some(last_dot_idx) = name.rfind('.') {
-        let ext = &name[last_dot_idx + 1..].to_lowercase();
-        let common_extensions = ["exe", "js", "ts", "html", "css", "py", "rs", "c", "cpp", "h", "hpp", "go", "sql", "yml", "yaml", "toml", "xml", "txt", "md", "json"];
+    // 生成 display_name
+    // 如果是快捷方式，使用快捷方式的名称
+    // 如果不是，使用目标文件的名称，并去掉常见后缀
+    let display_name_source = if is_shortcut { &original_name } else { &name };
+    
+    let display_name = if let Some(last_dot_idx) = display_name_source.rfind('.') {
+        let ext = &display_name_source[last_dot_idx + 1..].to_lowercase();
+        let common_extensions = ["exe", "lnk", "js", "ts", "html", "css", "py", "rs", "c", "cpp", "h", "hpp", "go", "sql", "yml", "yaml", "toml", "xml", "txt", "md", "json"];
         if common_extensions.contains(&ext.as_str()) {
-            name[..last_dot_idx].to_string()
+            display_name_source[..last_dot_idx].to_string()
         } else {
-            name.clone()
+            display_name_source.clone()
         }
     } else {
-        name.clone()
+        display_name_source.clone()
     };
 
     let created_at = std::time::SystemTime::now()
@@ -193,6 +221,7 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
         category: None,
         open_count: None,
         created_at: Some(created_at),
+        notes: None,
     })
 }
 
@@ -285,5 +314,33 @@ pub fn open_file_location(path: String) -> Result<(), String> {
                 .map_err(|e| e.to_string())?;
         }
         return Ok(());
+    }
+}
+
+#[tauri::command]
+pub fn open_with_dialog(path: String) -> Result<(), String> {
+    let path = path.trim();
+    if path.is_empty() {
+        return Err("path is empty".to_string());
+    }
+
+    let path = to_abs_path(path)?;
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err(format!("path does not exist: {}", path));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("rundll32.exe")
+            .args(["shell32.dll,OpenAs_RunDLL", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("当前平台暂不支持“打开方式”对话框".to_string());
     }
 }

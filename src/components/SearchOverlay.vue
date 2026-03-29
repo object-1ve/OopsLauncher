@@ -36,6 +36,9 @@
             <div class="item-category" v-if="getCategoryName(file.category)">
               {{ getCategoryName(file.category) }}
             </div>
+            <div class="match-reason" v-if="file.matchReason">
+              {{ file.matchReason }}
+            </div>
           </div>
           <div v-if="globalSearchResults.length > 15" class="results-footer">
             更多结果请缩小搜索范围...
@@ -239,6 +242,16 @@ watch(searchQuery, () => {
   color: #909399;
   border-radius: 4px;
   margin-left: 12px;
+}
+
+.match-reason {
+  font-size: 10px;
+  padding: 1px 5px;
+  background-color: #fef0f0;
+  color: #f56c6c;
+  border-radius: 4px;
+  margin-left: 8px;
+  white-space: nowrap;
 }
 
 .no-results {

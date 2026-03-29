@@ -13,9 +13,9 @@
               height: settings.appearance.iconSize + 16 + 'px',
             }
       "
-      :title="`名称: ${file.name}\n打开次数: ${file.openCount || 0}\n位置: ${
-        file.path || '未知'
-      }`"
+      :title="`名称: ${file.displayName || file.name}\n打开次数: ${
+        file.openCount || 0
+      }\n位置: ${file.path || '未知'}`"
       @click="handleFileClick"
       @contextmenu="handleContextMenu"
     >
@@ -109,7 +109,7 @@ const handleContextMenu = (e) => {
 }
 
 .icon-wrapper {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
   justify-content: center;

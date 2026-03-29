@@ -34,6 +34,7 @@ pub fn run() {
             commands::file::get_file_info,
             commands::file::open_path,
             commands::file::open_file_location,
+            commands::file::open_with_dialog,
             commands::category::save_categories_to_db,
             commands::category::load_categories_from_db,
             commands::category::rename_category_in_db,
@@ -46,6 +47,9 @@ pub fn run() {
             commands::app::exit_app,
         ])
         .setup(|app| {
+            // 初始化数据库
+            db::init_database(app.handle())?;
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

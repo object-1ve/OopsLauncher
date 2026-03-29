@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { ElMessage } from 'element-plus'
 
 // 检测是否在 Tauri 环境中运行
 const isTauri = () => !!window.__TAURI_INTERNALS__;
@@ -11,13 +12,13 @@ const generateDisplayName = (fileName) => {
     const lastDotIndex = fileName.lastIndexOf('.')
     if (lastDotIndex > 0) {
       const ext = fileName.substring(lastDotIndex + 1).toLowerCase()
-      const commonExtensions = ['exe', 'js', 'ts', 'html', 'css', 'py', 'rs', 'c', 'cpp', 'h', 'hpp', 'go', 'sql', 'yml', 'yaml', 'toml', 'xml', 'txt', 'md', 'json']
+      const commonExtensions = ['exe', 'lnk', 'js', 'ts', 'html', 'css', 'py', 'rs', 'c', 'cpp', 'h', 'hpp', 'go', 'sql', 'yml', 'yaml', 'toml', 'xml', 'txt', 'md', 'json']
       if (commonExtensions.includes(ext)) {
         return fileName.substring(0, lastDotIndex)
       }
     }
   }
-  return fileName
+  return fileName || ''
 }
 
 // Global state
@@ -31,32 +32,18 @@ const sortOrder = ref('desc') // 默认降序
 const searchQuery = ref('') // 搜索关键词
 const showSearchOverlay = ref(false) // 是否显示搜索遮罩层
 
-// Computed
-const globalSearchResults = computed(() => {
-  if (!searchQuery.value) return []
-  const query = searchQuery.value.toLowerCase()
-  // 展平所有分类的文件
-  const allFiles = Object.values(filesByCategory.value).flat()
-  
-  const results = allFiles.filter(file => 
-    (file.displayName && file.displayName.toLowerCase().includes(query)) ||
-    (file.name && file.name.toLowerCase().includes(query)) ||
-    (file.path && file.path.toLowerCase().includes(query))
-  )
-  
-  // 结果去重（按路径）
-  const seenPaths = new Set()
-  return results.filter(file => {
-    if (seenPaths.has(file.path)) return false
-    seenPaths.add(file.path)
-    return true
-  })
-})
+// 标记数据是否已从数据库加载，防止未加载完成就触发保存导致数据丢失
+let hasLoaded = false;
 
-const currentFiles = computed(() => {
-  const files = filesByCategory.value[currentCategory.value] || []
-  
-  // 应用排序逻辑
+// 标记 Tauri 监听器是否已设置，防止重复注册
+let tauriListenersSet = false;
+
+// 特殊分类 ID
+export const SPECIAL_CATEGORIES = {
+  ALL_FILES: 'all_files'
+}
+
+const sortFiles = (files) => {
   return [...files].sort((a, b) => {
     let result = 0
     if (sortMethod.value === 'openCount') {
@@ -64,13 +51,65 @@ const currentFiles = computed(() => {
     } else if (sortMethod.value === 'created_at') {
       result = (a.created_at || 0) - (b.created_at || 0)
     } else {
-      // 默认按名称排序
       result = (a.displayName || a.name || '').localeCompare(b.displayName || b.name || '')
     }
-    
-    // 根据升降序翻转结果
+
     return sortOrder.value === 'asc' ? result : -result
   })
+}
+
+// Computed
+const globalSearchResults = computed(() => {
+  if (!searchQuery.value) return []
+  const query = searchQuery.value.toLowerCase()
+  // 展平所有分类的文件
+  const allFiles = Object.values(filesByCategory.value).flat()
+  
+  const results = []
+  const seenPaths = new Set()
+
+  for (const file of allFiles) {
+    if (seenPaths.has(file.path)) continue
+
+    let matchReason = ''
+    if (file.displayName && file.displayName.toLowerCase().includes(query)) {
+      matchReason = '名称匹配'
+    } else if (file.name && file.name.toLowerCase().includes(query)) {
+      matchReason = '文件名匹配'
+    } else if (file.notes && file.notes.toLowerCase().includes(query)) {
+      matchReason = '备注匹配'
+    } else if (file.path && file.path.toLowerCase().includes(query)) {
+      matchReason = '路径匹配'
+    }
+
+    if (matchReason) {
+      results.push({
+        ...file,
+        matchReason
+      })
+      seenPaths.add(file.path)
+    }
+  }
+  
+  return results
+})
+
+const currentFiles = computed(() => {
+  if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
+    const allFiles = Object.values(filesByCategory.value).flat()
+    const uniqueFilesMap = new Map()
+    allFiles.forEach(file => {
+      if (!uniqueFilesMap.has(file.path) || (file.openCount || 0) > (uniqueFilesMap.get(file.path).openCount || 0)) {
+        uniqueFilesMap.set(file.path, file)
+      }
+    })
+
+    return sortFiles(Array.from(uniqueFilesMap.values()))
+  }
+
+  const files = filesByCategory.value[currentCategory.value] || []
+
+  return sortFiles(files)
 })
 
 const allCategories = computed({
@@ -215,6 +254,10 @@ export function useFiles() {
   let savePending = false;
 
   const saveFiles = async () => {
+    if (!hasLoaded) {
+      console.warn('Cannot save files before they are loaded from DB');
+      return;
+    }
     if (isSaving) {
       savePending = true;
       return;
@@ -227,15 +270,21 @@ export function useFiles() {
         for (const [categoryId, categoryFiles] of Object.entries(filesByCategory.value)) {
           for (const file of categoryFiles) {
             // 转换openCount为open_count, displayName为display_name
+            // 显式指定所有 FileInfo 要求的字段，确保不丢失且不为 undefined/null (针对非 Option 字段)
             const fileToSave = {
-              ...file,
-              open_count: file.openCount || 0,
-              display_name: file.displayName || generateDisplayName(file.name),
-              category: categoryId,
-              created_at: file.created_at || Date.now()
+              id: String(file.id || generateId()),
+              name: String(file.name || ''),
+              display_name: String(file.displayName || file.display_name || generateDisplayName(file.name) || ''),
+              path: String(file.path || ''),
+              size: Number(file.size) || 0,
+              type: String(file.type || ''),
+              icon: String(file.icon || ''),
+              content: file.content || null,
+              category: String(categoryId || 'main'),
+              open_count: Number(file.openCount || file.open_count || 0),
+              created_at: Number(file.created_at || Date.now()),
+              notes: file.notes || null
             }
-            delete fileToSave.openCount
-            delete fileToSave.displayName
             allFiles.push(fileToSave)
           }
         }
@@ -268,6 +317,8 @@ export function useFiles() {
           customCategories.value = JSON.parse(savedCats)
         }
         
+        hasLoaded = true;
+
         // 如果没有任何分类，则创建一个默认的
         if (customCategories.value.length === 0) {
           customCategories.value.unshift({ 
@@ -315,10 +366,13 @@ export function useFiles() {
         if (saved) {
           console.warn('Database is empty, falling back to localStorage');
           filesByCategory.value = JSON.parse(saved)
+          hasLoaded = true;
           // 重新保存到数据库
           await saveFiles()
           return
         }
+        // First run, no data in DB or localStorage
+        hasLoaded = true;
       }
 
       const organizedFiles = {}
@@ -339,20 +393,22 @@ export function useFiles() {
           const targetId = organizedFiles[categoryId] ? categoryId : customCategories.value[0].id
           
           // 转换字段名并保留 category 属性 (存储的是 ID)
-          const { open_count, display_name, created_at, ...otherFields } = file
+          const { open_count, display_name, created_at, notes, ...otherFields } = file
           const fileWithFormattedFields = {
             ...otherFields,
             openCount: open_count || 0,
             displayName: display_name || generateDisplayName(file.name),
             category: targetId,
             // 如果数据库里没时间（老数据），加载时补全，避免每次保存都变
-            created_at: created_at || Date.now() 
+            created_at: created_at || Date.now(),
+            notes: notes || ''
           }
           organizedFiles[targetId].push(fileWithFormattedFields)
         }
       }
       
       filesByCategory.value = organizedFiles
+      hasLoaded = true;
       console.log('Final organized files (by ID):', filesByCategory.value)
       console.log('Files loaded successfully from DB:', loaded?.length || 0, 'files')
     } catch (error) {
@@ -361,20 +417,28 @@ export function useFiles() {
       const saved = localStorage.getItem('oopslauncher_files')
       if (saved) {
         filesByCategory.value = JSON.parse(saved)
+        hasLoaded = true;
       }
     }
   }
 
   const processFiles = async (fileList) => {
+    // 如果是特殊分类，不允许直接添加文件
+    if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
+      return { addedCount: 0, existingCount: 0, error: 'cannot_add_to_special_category' };
+    }
+
     if (!filesByCategory.value[currentCategory.value]) {
       filesByCategory.value[currentCategory.value] = []
     }
     
     let addedCount = 0;
     let existingCount = 0;
+    let failedCount = 0;
     
     for (const file of fileList) {
       let fileInfo;
+      let isError = false;
       
       if (isTauri() && (file.path || file.name)) {
         try {
@@ -385,10 +449,16 @@ export function useFiles() {
             fileInfo.icon = await getFileIcon({ name: fileInfo.name });
           }
           fileInfo.category = currentCategory.value;
+          fileInfo.displayName = fileInfo.display_name || generateDisplayName(fileInfo.name);
+          fileInfo.notes = fileInfo.notes || '';
         } catch (error) {
           console.error(`Failed to get file info for ${file.name}:`, error);
+          isError = true;
+          failedCount++;
         }
       }
+
+      if (isError) continue;
 
       if (!fileInfo) {
         fileInfo = {
@@ -400,7 +470,8 @@ export function useFiles() {
           type: file.type,
           icon: await getFileIcon(file),
           category: currentCategory.value,
-          created_at: Date.now()
+          created_at: Date.now(),
+          notes: ''
         }
       }
       
@@ -420,18 +491,27 @@ export function useFiles() {
     // 返回添加结果，以便调用者可以显示适当的消息
     return {
       addedCount,
-      existingCount
+      existingCount,
+      failedCount
     };
   }
 
   const deleteFile = async (id) => {
-    filesByCategory.value[currentCategory.value] = filesByCategory.value[currentCategory.value].filter(file => file.id !== id)
+    // 如果是特殊分类，需要在所有分类中查找并删除该文件
+    if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
+      for (const categoryId in filesByCategory.value) {
+        filesByCategory.value[categoryId] = filesByCategory.value[categoryId].filter(file => file.id !== id)
+      }
+    } else {
+      filesByCategory.value[currentCategory.value] = filesByCategory.value[currentCategory.value].filter(file => file.id !== id)
+    }
     await saveFiles()
   }
 
   // 复制文件到指定分类
   const copyFileToCategory = async (file, targetCategoryId) => {
     if (!file || !targetCategoryId) return { success: false }
+    if (targetCategoryId === SPECIAL_CATEGORIES.ALL_FILES) return { success: false, reason: 'cannot_copy_to_special_category' }
     if (file.category === targetCategoryId) return { success: false }
     // 确保目标分类存在
     if (!filesByCategory.value[targetCategoryId]) return { success: false }
@@ -481,14 +561,29 @@ export function useFiles() {
   }
 
   const setupTauriListeners = async () => {
+    if (tauriListenersSet) return;
+    
     if (window.__TAURI_INTERNALS__?.invoke) {
+      tauriListenersSet = true;
+      console.log('Setting up Tauri drag-drop listener...')
       await listen('tauri://drag-drop', async (event) => {
         const { paths } = event.payload
         if (paths && paths.length > 0) {
+          // 如果是特殊分类，拦截拖拽添加
+          if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
+            console.warn('Cannot add files to special category via drag-drop');
+            ElMessage.warning('不能直接向“全部文件”分类中添加文件')
+            return
+          }
+
           if (!filesByCategory.value[currentCategory.value]) {
             filesByCategory.value[currentCategory.value] = []
           }
           
+          let addedCount = 0;
+          let failedCount = 0;
+          let existingCount = 0;
+
           for (const path of paths) {
             if (!filesByCategory.value[currentCategory.value].some(f => f.path === path)) {
               try {
@@ -500,13 +595,30 @@ export function useFiles() {
                 fileInfo.category = currentCategory.value
                 fileInfo.displayName = fileInfo.display_name || generateDisplayName(fileInfo.name)
                 fileInfo.created_at = fileInfo.created_at || Date.now()
+                fileInfo.notes = fileInfo.notes || ''
                 filesByCategory.value[currentCategory.value].push(fileInfo)
+                addedCount++;
               } catch (error) {
                 console.error(`Failed to process path ${path}:`, error)
+                failedCount++;
               }
+            } else {
+              existingCount++;
             }
           }
-          await saveFiles()
+
+          if (addedCount > 0) {
+            await saveFiles()
+            if (failedCount === 0) {
+              ElMessage.success(`成功添加 ${addedCount} 个文件`)
+            } else {
+              ElMessage.success(`成功添加 ${addedCount} 个文件，但有 ${failedCount} 个文件添加失败`)
+            }
+          } else if (failedCount > 0) {
+            ElMessage.error(`${failedCount} 个文件添加失败，请检查文件是否存在或权限是否足够`)
+          } else if (existingCount > 0) {
+            ElMessage.warning(`所有文件都已存在`)
+          }
         }
       })
     }
@@ -533,6 +645,7 @@ export function useFiles() {
     sortOrder,
     searchQuery,
     globalSearchResults,
-    showSearchOverlay
+    showSearchOverlay,
+    SPECIAL_CATEGORIES
   }
 }

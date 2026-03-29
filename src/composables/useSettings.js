@@ -22,8 +22,8 @@ const defaultSettings = {
       borderColor: '#E4E7ED',
       hoverColor: '#ECF5FF',
       borderRadius: '4px',
-      itemMargin: '4px',
-      itemPadding: '8px',
+      itemMargin: '0px',
+      itemPadding: '0px',
       fontSize: '13px',
       lineHeight: '1.4'
     }

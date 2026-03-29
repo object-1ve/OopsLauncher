@@ -23,6 +23,8 @@
       @delete="handleContextMenuDelete"
       @hide="hideContextMenu"
       @openLocation="handleOpenLocation"
+      @copyPath="handleCopyPath"
+      @openWith="handleOpenWith"
       @editInfo="handleEditInfo"
       @sort="handleSort"
       @toggleDisplay="handleToggleDisplay"
@@ -48,6 +50,7 @@ import { useFiles } from '@/composables/useFiles'
 import { useSettings } from '@/composables/useSettings'
 import { useContextMenu } from '@/composables/useContextMenu'
 import { invoke } from '@tauri-apps/api/core'
+import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { ElMessage } from 'element-plus'
 
 const { 
@@ -86,11 +89,23 @@ const fileInfoDialog = ref({
 const handleFileAdd = async (fileList) => {
   const result = await processFiles(fileList)
   
+  if (result.error === 'cannot_add_to_special_category') {
+    ElMessage.warning('不能直接向“全部文件”分类中添加文件')
+    return
+  }
+
   // 显示添加结果的消息
-  if (result.addedCount > 0 && result.existingCount === 0) {
-    ElMessage.success(`成功添加 ${result.addedCount} 个文件`)
-  } else if (result.addedCount > 0 && result.existingCount > 0) {
-    ElMessage.success(`成功添加 ${result.addedCount} 个文件，${result.existingCount} 个文件已存在`)
+  if (result.addedCount > 0) {
+    if (result.failedCount === 0 && result.existingCount === 0) {
+      ElMessage.success(`成功添加 ${result.addedCount} 个文件`)
+    } else {
+      let msg = `成功添加 ${result.addedCount} 个文件`
+      if (result.existingCount > 0) msg += `，${result.existingCount} 个文件已存在`
+      if (result.failedCount > 0) msg += `，${result.failedCount} 个文件添加失败`
+      ElMessage.success(msg)
+    }
+  } else if (result.failedCount > 0) {
+    ElMessage.error(`${result.failedCount} 个文件添加失败，请检查文件是否存在或权限是否足够`)
   } else if (result.existingCount > 0) {
     ElMessage.warning(`所有 ${result.existingCount} 个文件都已存在，添加失败`)
   }
@@ -154,6 +169,36 @@ const handleOpenLocation = async (file) => {
   } catch (error) {
     console.error('Failed to open file location:', error)
     alert(`打开文件所在位置失败: ${error.message}`)
+  }
+}
+
+// 方法：处理复制路径
+const handleCopyPath = async (file) => {
+  try {
+    if (file && file.path) {
+      await writeText(file.path)
+      ElMessage.success('已复制到剪贴板')
+    }
+  } catch (error) {
+    console.error('Failed to copy path:', error)
+    ElMessage.error('复制路径失败')
+  }
+}
+
+const handleOpenWith = async (file) => {
+  try {
+    if (file && file.path) {
+      const isTauri = !!window.__TAURI_INTERNALS__
+
+      if (isTauri) {
+        await invoke('open_with_dialog', { path: file.path })
+      } else {
+        alert(`当前环境不支持打开方式: ${file.path}`)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to open with dialog:', error)
+    alert(`打开方式失败: ${error.message}`)
   }
 }
 
@@ -224,6 +269,8 @@ const handleCopyToCategory = async ({ file, targetCategoryId }) => {
     ElMessage.success(`已复制到「${targetCat?.name || targetCategoryId}」`)
   } else if (result.reason === 'duplicate') {
     ElMessage.warning(`文件已存在于「${targetCat?.name || targetCategoryId}」中`)
+  } else if (result.reason === 'cannot_copy_to_special_category') {
+    ElMessage.warning('不能直接向“全部文件”分类中复制文件')
   }
   hideContextMenu()
 }

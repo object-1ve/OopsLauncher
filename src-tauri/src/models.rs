@@ -14,6 +14,7 @@ pub struct FileInfo {
     pub category: Option<String>,
     pub open_count: Option<u64>,
     pub created_at: Option<i64>,
+    pub notes: Option<String>,
 }
 
 // 分类结构体

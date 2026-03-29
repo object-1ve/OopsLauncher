@@ -7,6 +7,12 @@
         <li @click="handleOpenLocation" class="context-menu-item">
           打开文件所在位置
         </li>
+        <li @click="handleCopyPath" class="context-menu-item">
+          复制完整路径
+        </li>
+        <li @click="handleOpenWith" class="context-menu-item">
+          打开方式
+        </li>
         <li @click="handleEditInfo" class="context-menu-item">
           编辑信息
         </li>
@@ -133,7 +139,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation", "editInfo", "sort", "toggleDisplay", "copyToCategory"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "copyPath", "openWith", "editInfo", "sort", "toggleDisplay", "copyToCategory"]);
 
 // 菜单元素引用
 const menuRef = ref(null);
@@ -202,6 +208,21 @@ const handleDelete = () => {
 const handleOpenLocation = () => {
   if (props.selectedFile) {
     emit("openLocation", props.selectedFile);
+    emit("hide");
+  }
+};
+
+// 方法：处理复制路径
+const handleCopyPath = () => {
+  if (props.selectedFile) {
+    emit("copyPath", props.selectedFile);
+    emit("hide");
+  }
+};
+
+const handleOpenWith = () => {
+  if (props.selectedFile) {
+    emit("openWith", props.selectedFile);
     emit("hide");
   }
 };

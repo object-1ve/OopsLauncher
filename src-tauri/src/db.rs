@@ -14,14 +14,20 @@ pub fn get_db_connection(app: &tauri::AppHandle) -> Result<Connection, String> {
     let conn = Connection::open(db_path)
         .map_err(|e| e.to_string())?;
     
-    // 初始化数据库表结构
-    init_database(&conn)?;
-    
     Ok(conn)
 }
 
-// 初始化数据库表结构
-pub fn init_database(conn: &Connection) -> Result<(), String> {
+pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
+    let conn = get_db_connection(app)?;
+    
+    // 设置 WAL 模式以提高并发性能和稳定性
+    // 设置同步模式为 NORMAL，在保证安全的同时提高写入性能
+    // 使用 execute_batch 避免 PRAGMA 返回结果导致的 execute 错误
+    conn.execute_batch("
+        PRAGMA journal_mode = WAL;
+        PRAGMA synchronous = NORMAL;
+    ").map_err(|e| e.to_string())?;
+    
     // 创建文件表
     conn.execute(
         "CREATE TABLE IF NOT EXISTS files (
@@ -35,7 +41,9 @@ pub fn init_database(conn: &Connection) -> Result<(), String> {
             content TEXT,
             category TEXT NOT NULL DEFAULT 'main',
             open_count INTEGER DEFAULT 0,
-            created_at INTEGER
+            created_at INTEGER,
+            notes TEXT,
+            UNIQUE(category, path)
         )",
         []
     ).map_err(|e| e.to_string())?;
@@ -51,10 +59,156 @@ pub fn init_database(conn: &Connection) -> Result<(), String> {
         )",
         []
     ).map_err(|e| e.to_string())?;
+
+    // 检查并手动进行数据库迁移
+    // 获取当前 files 表的所有列名
+    let mut stmt = conn.prepare("PRAGMA table_info(files)").map_err(|e| e.to_string())?;
+    let columns: Vec<String> = stmt.query_map([], |row| {
+        Ok(row.get(1)?) // 获取列名
+    }).map_err(|e| e.to_string())?
+    .filter_map(|result| result.ok())
+    .collect();
     
-    // 检查并同步分类表结构
-    let mut stmt = conn.prepare("PRAGMA table_info(categories)").map_err(|e| e.to_string())?;
-    let cat_columns: Vec<String> = stmt.query_map([], |row| {
+    // 如果category列不存在，则添加它
+    if !columns.contains(&"category".to_string()) {
+        println!("Adding category column to files table...");
+        conn.execute(
+            "ALTER TABLE files ADD COLUMN category TEXT NOT NULL DEFAULT 'main'",
+            []
+        ).map_err(|e| e.to_string())?;
+    }
+    
+    // 如果open_count列不存在，则添加它
+    if !columns.contains(&"open_count".to_string()) {
+        println!("Adding open_count column to files table...");
+        conn.execute(
+            "ALTER TABLE files ADD COLUMN open_count INTEGER DEFAULT 0",
+            []
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // 如果content列不存在，则添加它
+    if !columns.contains(&"content".to_string()) {
+        println!("Adding content column to files table...");
+        conn.execute(
+            "ALTER TABLE files ADD COLUMN content TEXT",
+            []
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // 如果display_name列不存在，则添加它
+    if !columns.contains(&"display_name".to_string()) {
+        println!("Adding display_name column to files table...");
+        conn.execute(
+            "ALTER TABLE files ADD COLUMN display_name TEXT",
+            []
+        ).map_err(|e| e.to_string())?;
+    }
+    
+    // 始终确保 display_name 不为 NULL（如果之前列存在但有 NULL 值）
+    conn.execute(
+        "UPDATE files SET display_name = name WHERE display_name IS NULL OR display_name = ''",
+        []
+    ).map_err(|e| e.to_string())?;
+
+    // 如果created_at列不存在，则添加它
+    if !columns.contains(&"created_at".to_string()) {
+        println!("Adding created_at column to files table...");
+        conn.execute(
+            "ALTER TABLE files ADD COLUMN created_at INTEGER",
+            []
+        ).map_err(|e| e.to_string())?;
+    }
+    
+    // 如果notes列不存在，则添加它
+    if !columns.contains(&"notes".to_string()) {
+        println!("Adding notes column to files table...");
+        conn.execute(
+            "ALTER TABLE files ADD COLUMN notes TEXT",
+            []
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // 检查是否仍存在旧的 UNIQUE(path) 约束
+    let mut stmt = conn.prepare("PRAGMA index_list(files)").map_err(|e| e.to_string())?;
+    let indexes: Vec<(String, bool)> = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(1)?, row.get::<_, bool>(2)?))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|result| result.ok())
+    .collect();
+
+    let mut has_global_unique_path = false;
+    for (idx_name, is_unique) in indexes {
+        if is_unique {
+            let mut info_stmt = conn.prepare(&format!("PRAGMA index_info({})", idx_name)).map_err(|e| e.to_string())?;
+            let columns: Vec<String> = info_stmt.query_map([], |row| {
+                Ok(row.get::<_, String>(2)?)
+            }).map_err(|e| e.to_string())?
+            .filter_map(|result| result.ok())
+            .collect();
+
+            if columns == vec!["path".to_string()] {
+                has_global_unique_path = true;
+                break;
+            }
+        }
+    }
+
+    if has_global_unique_path {
+        let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+
+        tx.execute(
+            "ALTER TABLE files RENAME TO files_old",
+            []
+        ).map_err(|e| e.to_string())?;
+
+        tx.execute(
+            "CREATE TABLE files (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                path TEXT NOT NULL,
+                size INTEGER,
+                type TEXT,
+                icon TEXT,
+                content TEXT,
+                category TEXT NOT NULL DEFAULT 'main',
+                open_count INTEGER DEFAULT 0,
+                created_at INTEGER,
+                notes TEXT,
+                UNIQUE(category, path)
+            )",
+            []
+        ).map_err(|e| e.to_string())?;
+
+        tx.execute(
+            "INSERT OR IGNORE INTO files (
+                id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes
+            )
+            SELECT
+                id,
+                name,
+                COALESCE(NULLIF(display_name, ''), name),
+                path,
+                size,
+                COALESCE(type, ''),
+                COALESCE(icon, ''),
+                content,
+                COALESCE(category, 'main'),
+                COALESCE(open_count, 0),
+                created_at,
+                notes
+            FROM files_old",
+            []
+        ).map_err(|e| e.to_string())?;
+
+        tx.execute("DROP TABLE files_old", []).map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())?;
+    }
+
+    // 检查并手动进行 categories 表的数据库迁移
+    let mut cat_stmt = conn.prepare("PRAGMA table_info(categories)").map_err(|e| e.to_string())?;
+    let cat_columns: Vec<String> = cat_stmt.query_map([], |row| {
         Ok(row.get(1)?)
     }).map_err(|e| e.to_string())?
     .filter_map(|result| result.ok())
@@ -68,55 +222,6 @@ pub fn init_database(conn: &Connection) -> Result<(), String> {
     }
     if !cat_columns.contains(&"sort_order".to_string()) {
         conn.execute("ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []).map_err(|e| e.to_string())?;
-    }
-
-    // 检查并添加category列（如果不存在）
-    // SQLite不支持ALTER TABLE中的IF NOT EXISTS，所以需要先检查列是否存在
-    let mut stmt = conn.prepare("PRAGMA table_info(files)").map_err(|e| e.to_string())?;
-    let columns: Vec<String> = stmt.query_map([], |row| {
-        Ok(row.get(1)?) // 获取列名
-    }).map_err(|e| e.to_string())?
-    .filter_map(|result| result.ok())
-    .collect();
-    
-    // 如果category列不存在，则添加它
-    if !columns.contains(&"category".to_string()) {
-        conn.execute(
-            "ALTER TABLE files ADD COLUMN category TEXT NOT NULL DEFAULT 'main'",
-            []
-        ).map_err(|e| e.to_string())?;
-    }
-    
-    // 如果open_count列不存在，则添加它
-    if !columns.contains(&"open_count".to_string()) {
-        conn.execute(
-            "ALTER TABLE files ADD COLUMN open_count INTEGER DEFAULT 0",
-            []
-        ).map_err(|e| e.to_string())?;
-    }
-
-    // 如果content列不存在，则添加它
-    if !columns.contains(&"content".to_string()) {
-        conn.execute(
-            "ALTER TABLE files ADD COLUMN content TEXT",
-            []
-        ).map_err(|e| e.to_string())?;
-    }
-    
-    // 如果display_name列不存在，则添加它
-    if !columns.contains(&"display_name".to_string()) {
-        conn.execute(
-            "ALTER TABLE files ADD COLUMN display_name TEXT NOT NULL DEFAULT ''",
-            []
-        ).map_err(|e| e.to_string())?;
-    }
-    
-    // 如果created_at列不存在，则添加它
-    if !columns.contains(&"created_at".to_string()) {
-        conn.execute(
-            "ALTER TABLE files ADD COLUMN created_at INTEGER",
-            []
-        ).map_err(|e| e.to_string())?;
     }
     
     Ok(())

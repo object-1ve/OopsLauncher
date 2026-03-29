@@ -1,6 +1,19 @@
 <template>
   <div class="sidebar-aside" @contextmenu.prevent="handleSidebarContextMenu">
     <div class="sidebar-menu">
+      <!-- 特殊分类：全部文件 -->
+      <div class="special-categories">
+        <div
+          class="menu-item special-item"
+          :class="{ active: currentCategory === SPECIAL_CATEGORIES.ALL_FILES }"
+          @click="handleMenuSelect(SPECIAL_CATEGORIES.ALL_FILES)"
+        >
+          <div class="item-content">
+            <span class="item-name">全部文件</span>
+          </div>
+        </div>
+      </div>
+
       <draggable
         v-model="allCategories"
         item-key="id"
@@ -91,7 +104,7 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(["categoryChange"]);
 
-const { allCategories, addCategory, deleteCategory, updateCategoryOrder } = useFiles();
+const { allCategories, addCategory, deleteCategory, updateCategoryOrder, SPECIAL_CATEGORIES } = useFiles();
 const { registerMenu, unregisterMenu } = useContextMenu();
 
 // 侧边栏元素引用
@@ -284,6 +297,41 @@ onUnmounted(() => {
   -moz-user-select: none;
   -ms-user-select: none;
   background-color:white;
+}
+
+.special-categories {
+  padding-bottom: 5px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 5px;
+}
+
+.menu-item.special-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #303133;
+}
+
+.menu-item.special-item:hover {
+  background-color: #f0f0f0;
+}
+
+.menu-item.special-item.active {
+  background-color: #ececec;
+  border-right: 3px solid #409eff;
+}
+
+.item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-icon {
+  font-size: 16px;
 }
 
 .menu-items {

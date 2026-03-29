@@ -63,6 +63,16 @@
             disabled
           />
         </el-form-item>
+
+        <!-- 备注 -->
+        <el-form-item label="备注">
+          <el-input
+            v-model="editForm.notes"
+            placeholder="添加备注，支持搜索"
+            type="textarea"
+            :rows="2"
+          />
+        </el-form-item>
       </el-form>
     </div>
     
@@ -107,6 +117,7 @@ const editForm = ref({
   size: "",
   type: "",
   openCount: 0,
+  notes: "",
 });
 
 // 监听 currentFile 变化，更新表单数据
@@ -119,6 +130,7 @@ watch(() => props.currentFile, (newFile) => {
       size: formatFileSize(newFile.size || 0),
       type: newFile.type || getFileType(newFile.name || ""),
       openCount: newFile.openCount || 0,
+      notes: newFile.notes || "",
     };
   }
 }, { immediate: true });
@@ -148,6 +160,7 @@ const handleSave = () => {
     const updatedFile = {
       ...props.currentFile,
       displayName: editForm.value.displayName || props.currentFile.name,
+      notes: editForm.value.notes,
     };
     emit("save", updatedFile);
     emit("update:visible", false);

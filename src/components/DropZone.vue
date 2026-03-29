@@ -9,7 +9,7 @@
           <FileIcon v-for="file in currentFiles" :key="file.id" :file="file" class="file-icon-item"
             @open="handleFileOpen" @delete="handleFileDelete" @contextmenu="handleFileContextMenu" />
         </div>
-      </div>1
+      </div>
       <!-- 隐藏的文件输入 -->
       <input ref="fileInput" type="file" multiple class="file-input" @change="handleFileSelect" />
     </div>
@@ -22,6 +22,9 @@ import FileIcon from "./FileIcon.vue";
 import { useSettings } from "@/composables/useSettings";
 
 const { settings } = useSettings();
+
+// 检测是否在 Tauri 环境中运行
+const isTauri = () => !!window.__TAURI_INTERNALS__;
 
 // Props
 const props = defineProps({
@@ -64,6 +67,10 @@ const handleDrop = async (e) => {
   e.preventDefault();
   isDragOver.value = false;
 
+  // 在 Tauri 环境下，拖拽添加由 useFiles 中的 tauri://drag-drop 监听器统一处理
+  // 否则会造成重复添加（浏览器 drop 事件和 Tauri 原生事件同时触发）
+  if (isTauri()) return;
+
   const droppedFiles = Array.from(e.dataTransfer.files);
   emit("fileAdd", droppedFiles);
 };
@@ -91,7 +98,7 @@ const handleEmptyContextMenu = (e) => {
 
 <style scoped>
 .drop-zone-main {
-  padding: 0;
+  padding: 0px 0px 30px 0px;
   /* 移除外层 padding */
   height: 100%;
   /* 继承父容器高度 */
@@ -140,12 +147,12 @@ const handleEmptyContextMenu = (e) => {
 
 /* 图标项样式覆盖 */
 .file-icon-item {
-  margin: 0 4px 16px 4px;
+  margin: 0;
   /* 上 右 下 左 */
 }
 
 .list .file-icon-item {
-  margin: 0 0 4px 0;
+  margin: 0 0 2px 0;
 }
 
 /* 滚动条美化 */
