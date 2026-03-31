@@ -3,6 +3,8 @@
     <!-- 使用DropZone组件 -->
     <DropZone 
       :currentFiles="currentFiles"
+      :groupedCurrentFiles="groupedCurrentFiles"
+      :classifyMethod="classifyMethod"
       @fileAdd="handleFileAdd"
       @fileOpen="openFile"
       @fileDelete="deleteFile"
@@ -18,6 +20,7 @@
       :selectedFile="contextMenu.selectedFile"
       :sortMethod="sortMethod"
       :sortOrder="sortOrder"
+      :classifyMethod="classifyMethod"
       :showFileName="settings.appearance.showFileName"
       :categories="allCategories"
       @delete="handleContextMenuDelete"
@@ -27,6 +30,7 @@
       @openWith="handleOpenWith"
       @editInfo="handleEditInfo"
       @sort="handleSort"
+      @classify="handleClassify"
       @toggleDisplay="handleToggleDisplay"
       @copyToCategory="handleCopyToCategory"
     />
@@ -55,6 +59,7 @@ import { ElMessage } from 'element-plus'
 
 const { 
   currentFiles, 
+  groupedCurrentFiles,
   filesByCategory,
   processFiles, 
   deleteFile, 
@@ -64,6 +69,7 @@ const {
   saveFiles,
   sortMethod,
   sortOrder,
+  classifyMethod,
   allCategories,
   copyFileToCategory
 } = useFiles()
@@ -252,6 +258,10 @@ const handleSort = (method) => {
     sortMethod.value = method
     sortOrder.value = 'asc'
   }
+}
+
+const handleClassify = (method) => {
+  classifyMethod.value = method
 }
 
 // 方法：处理显示配置切换

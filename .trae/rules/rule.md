@@ -1,7 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 # 规则
 
 每次代码修改后
-更新 tauri.conf.json 和 package.json 的版本号
+通过npm run sync:version -- 0.3.26 更新 package.json、tauri.conf.json、Cargo.toml 的版本号

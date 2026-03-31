@@ -5,7 +5,16 @@
       @drop="handleDrop" @contextmenu.prevent="handleEmptyContextMenu">
       <!-- 图标展示区域 -->
       <div class="icons-container" v-if="currentFiles.length > 0">
-        <div class="row-container" :class="settings.appearance.itemLayout">
+        <div v-if="classifyMethod === 'type'">
+          <div v-for="group in groupedCurrentFiles" :key="group.type" class="group-section">
+            <div class="group-title">{{ group.label }}</div>
+            <div class="row-container" :class="settings.appearance.itemLayout">
+              <FileIcon v-for="file in group.files" :key="file.id" :file="file" class="file-icon-item"
+                @open="handleFileOpen" @delete="handleFileDelete" @contextmenu="handleFileContextMenu" />
+            </div>
+          </div>
+        </div>
+        <div v-else class="row-container" :class="settings.appearance.itemLayout">
           <FileIcon v-for="file in currentFiles" :key="file.id" :file="file" class="file-icon-item"
             @open="handleFileOpen" @delete="handleFileDelete" @contextmenu="handleFileContextMenu" />
         </div>
@@ -31,6 +40,14 @@ const props = defineProps({
   currentFiles: {
     type: Array,
     default: () => [],
+  },
+  groupedCurrentFiles: {
+    type: Array,
+    default: () => [],
+  },
+  classifyMethod: {
+    type: String,
+    default: 'none',
   },
 });
 // Emits
@@ -143,6 +160,16 @@ const handleEmptyContextMenu = (e) => {
 
 .row-container.list {
   flex-direction: column;
+}
+
+.group-section {
+  margin-bottom: 14px;
+}
+
+.group-title {
+  font-size: 12px;
+  color: #909399;
+  padding: 0 4px 6px;
 }
 
 /* 图标项样式覆盖 */

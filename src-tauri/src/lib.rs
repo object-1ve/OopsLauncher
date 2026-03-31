@@ -45,6 +45,8 @@ pub fn run() {
             commands::app::check_is_minimized,
             commands::app::remove_window_animation,
             commands::app::exit_app,
+            commands::settings::save_launcher_state_to_db,
+            commands::settings::load_launcher_state_from_db,
         ])
         .setup(|app| {
             // 初始化数据库

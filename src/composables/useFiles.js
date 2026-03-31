@@ -21,21 +21,76 @@ const generateDisplayName = (fileName) => {
   return fileName || ''
 }
 
-// Global state
-const initialCategory = localStorage.getItem('oopslauncher_current_category') || 'main'
-const currentCategory = ref(initialCategory) // 这里存储分类的 ID
+// 特殊分类 ID
+export const SPECIAL_CATEGORIES = {
+  ALL_FILES: 'all_files'
+}
 
-// 监听分类变化并保存到 localStorage
-watch(currentCategory, (newVal) => {
-  localStorage.setItem('oopslauncher_current_category', newVal)
+// Global state
+const currentCategory = ref(SPECIAL_CATEGORIES.ALL_FILES)
+const sortMethod = ref('openCount')
+const sortOrder = ref('desc')
+const classifyMethod = ref('none')
+
+const normalizeSortMethod = (val) => ['name', 'openCount', 'created_at'].includes(val) ? val : 'openCount'
+const normalizeSortOrder = (val) => ['asc', 'desc'].includes(val) ? val : 'desc'
+const normalizeClassifyMethod = (val) => ['none', 'type'].includes(val) ? val : 'none'
+const normalizeCategory = (val) => val || SPECIAL_CATEGORIES.ALL_FILES
+
+const applyLauncherState = (state = {}) => {
+  currentCategory.value = normalizeCategory(state.current_category ?? state.currentCategory)
+  sortMethod.value = normalizeSortMethod(state.sort_method ?? state.sortMethod)
+  sortOrder.value = normalizeSortOrder(state.sort_order ?? state.sortOrder)
+  classifyMethod.value = normalizeClassifyMethod(state.classify_method ?? state.classifyMethod)
+}
+
+const getLauncherStatePayload = () => ({
+  current_category: normalizeCategory(currentCategory.value),
+  sort_method: normalizeSortMethod(sortMethod.value),
+  sort_order: normalizeSortOrder(sortOrder.value),
+  classify_method: normalizeClassifyMethod(classifyMethod.value)
+})
+
+let isApplyingLauncherState = false
+let launcherStateSaveQueued = false
+let isSavingLauncherState = false
+
+const saveLauncherState = async () => {
+  if (isApplyingLauncherState) return
+  if (isSavingLauncherState) {
+    launcherStateSaveQueued = true
+    return
+  }
+  isSavingLauncherState = true
+  try {
+    const payload = getLauncherStatePayload()
+    if (isTauri()) {
+      await invoke('save_launcher_state_to_db', { state: payload })
+    } else {
+      localStorage.setItem('oopslauncher_current_category', payload.current_category)
+      localStorage.setItem('oopslauncher_sort_method', payload.sort_method)
+      localStorage.setItem('oopslauncher_sort_order', payload.sort_order)
+      localStorage.setItem('oopslauncher_classify_method', payload.classify_method)
+    }
+  } catch (error) {
+    console.error('Failed to save launcher state:', error)
+  } finally {
+    isSavingLauncherState = false
+    if (launcherStateSaveQueued) {
+      launcherStateSaveQueued = false
+      await saveLauncherState()
+    }
+  }
+}
+
+watch([currentCategory, sortMethod, sortOrder, classifyMethod], () => {
+  saveLauncherState()
 })
 
 const customCategories = ref([])
 const filesByCategory = ref({
   'main': [] // key 是分类的 ID
 })
-const sortMethod = ref('openCount') // 默认按打开次数排序
-const sortOrder = ref('desc') // 默认降序
 const searchQuery = ref('') // 搜索关键词
 const showSearchOverlay = ref(false) // 是否显示搜索遮罩层
 
@@ -45,14 +100,20 @@ let hasLoaded = false;
 // 标记 Tauri 监听器是否已设置，防止重复注册
 let tauriListenersSet = false;
 
-// 特殊分类 ID
-export const SPECIAL_CATEGORIES = {
-  ALL_FILES: 'all_files'
-}
-
 const sortFiles = (files) => {
   return [...files].sort((a, b) => {
     let result = 0
+    const getFileType = (file) => {
+      if (file.type) return String(file.type).toLowerCase()
+      const fileName = file.name || ''
+      const lastDotIndex = fileName.lastIndexOf('.')
+      return lastDotIndex > -1 ? fileName.substring(lastDotIndex + 1).toLowerCase() : ''
+    }
+    if (classifyMethod.value === 'type') {
+      result = getFileType(a).localeCompare(getFileType(b))
+      if (result !== 0) return result
+    }
+
     if (sortMethod.value === 'openCount') {
       result = (a.openCount || 0) - (b.openCount || 0)
     } else if (sortMethod.value === 'created_at') {
@@ -63,6 +124,20 @@ const sortFiles = (files) => {
 
     return sortOrder.value === 'asc' ? result : -result
   })
+}
+
+const getCurrentCategoryFiles = () => {
+  if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
+    const allFiles = Object.values(filesByCategory.value).flat()
+    const uniqueFilesMap = new Map()
+    allFiles.forEach(file => {
+      if (!uniqueFilesMap.has(file.path) || (file.openCount || 0) > (uniqueFilesMap.get(file.path).openCount || 0)) {
+        uniqueFilesMap.set(file.path, file)
+      }
+    })
+    return Array.from(uniqueFilesMap.values())
+  }
+  return filesByCategory.value[currentCategory.value] || []
 }
 
 // Computed
@@ -102,21 +177,40 @@ const globalSearchResults = computed(() => {
 })
 
 const currentFiles = computed(() => {
-  if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
-    const allFiles = Object.values(filesByCategory.value).flat()
-    const uniqueFilesMap = new Map()
-    allFiles.forEach(file => {
-      if (!uniqueFilesMap.has(file.path) || (file.openCount || 0) > (uniqueFilesMap.get(file.path).openCount || 0)) {
-        uniqueFilesMap.set(file.path, file)
-      }
-    })
+  return sortFiles(getCurrentCategoryFiles())
+})
 
-    return sortFiles(Array.from(uniqueFilesMap.values()))
+const groupedCurrentFiles = computed(() => {
+  const files = getCurrentCategoryFiles()
+  if (classifyMethod.value !== 'type') {
+    return [{
+      type: 'all',
+      label: '全部',
+      files: sortFiles(files)
+    }]
   }
 
-  const files = filesByCategory.value[currentCategory.value] || []
+  const groupedMap = new Map()
+  files.forEach(file => {
+    const fileName = file.name || ''
+    const fileType = (file.type || (fileName.lastIndexOf('.') > -1 ? fileName.substring(fileName.lastIndexOf('.') + 1) : '') || 'null').toLowerCase()
+    if (!groupedMap.has(fileType)) {
+      groupedMap.set(fileType, [])
+    }
+    groupedMap.get(fileType).push(file)
+  })
 
-  return sortFiles(files)
+  return [...groupedMap.entries()]
+    .sort((a, b) => {
+      const countDiff = b[1].length - a[1].length
+      if (countDiff !== 0) return countDiff
+      return a[0].localeCompare(b[0])
+    })
+    .map(([type, groupFiles]) => ({
+      type,
+      label: type,
+      files: sortFiles(groupFiles)
+    }))
 })
 
 const allCategories = computed({
@@ -194,7 +288,7 @@ export function useFiles() {
       
       // 如果删除的是当前选中的分类，切换到列表中的第一个分类
       if (currentCategory.value === id) {
-        currentCategory.value = customCategories.value[0].id
+        currentCategory.value = SPECIAL_CATEGORIES.ALL_FILES
       }
 
       try {
@@ -226,7 +320,7 @@ export function useFiles() {
 
   const switchCategory = (categoryId) => {
     currentCategory.value = categoryId
-    if (!filesByCategory.value[categoryId]) {
+    if (categoryId !== SPECIAL_CATEGORIES.ALL_FILES && !filesByCategory.value[categoryId]) {
       filesByCategory.value[categoryId] = []
     }
   }
@@ -315,6 +409,18 @@ export function useFiles() {
   const loadFiles = async () => {
     try {
       if (!isTauri()) {
+        isApplyingLauncherState = true
+        try {
+          applyLauncherState({
+            current_category: localStorage.getItem('oopslauncher_current_category'),
+            sort_method: localStorage.getItem('oopslauncher_sort_method'),
+            sort_order: localStorage.getItem('oopslauncher_sort_order'),
+            classify_method: localStorage.getItem('oopslauncher_classify_method')
+          })
+        } finally {
+          isApplyingLauncherState = false
+        }
+
         const savedFiles = localStorage.getItem('oopslauncher_files')
         if (savedFiles) {
           filesByCategory.value = JSON.parse(savedFiles)
@@ -338,10 +444,21 @@ export function useFiles() {
         }
         
         // 确保当前选中的分类有效
-        if (!customCategories.value.some(c => c.id === currentCategory.value)) {
+        if (
+          currentCategory.value !== SPECIAL_CATEGORIES.ALL_FILES &&
+          !customCategories.value.some(c => c.id === currentCategory.value)
+        ) {
           currentCategory.value = customCategories.value[0].id
         }
         return
+      }
+
+      isApplyingLauncherState = true
+      try {
+        const launcherState = await invoke('load_launcher_state_from_db')
+        applyLauncherState(launcherState || {})
+      } finally {
+        isApplyingLauncherState = false
       }
 
       // Load categories first
@@ -361,8 +478,12 @@ export function useFiles() {
       customCategories.value = loadedCats
       
       // 确保当前选中的分类在加载后的列表中存在，否则切换到第一个
-      if (!customCategories.value.some(c => c.id === currentCategory.value)) {
+      if (
+        currentCategory.value !== SPECIAL_CATEGORIES.ALL_FILES &&
+        !customCategories.value.some(c => c.id === currentCategory.value)
+      ) {
         currentCategory.value = customCategories.value[0].id
+        await saveLauncherState()
       }
 
       const loaded = await invoke('load_files_from_db')
@@ -635,6 +756,7 @@ export function useFiles() {
     currentCategory,
     filesByCategory,
     currentFiles,
+    groupedCurrentFiles,
     allCategories,
     switchCategory,
     addCategory,
@@ -650,6 +772,7 @@ export function useFiles() {
     saveFiles,
     sortMethod,
     sortOrder,
+    classifyMethod,
     searchQuery,
     globalSearchResults,
     showSearchOverlay,

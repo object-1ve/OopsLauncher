@@ -26,3 +26,11 @@ pub struct Category {
     pub icon: Option<String>,
     pub sort_order: i32,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LauncherState {
+    pub current_category: String,
+    pub sort_method: String,
+    pub sort_order: String,
+    pub classify_method: String,
+}

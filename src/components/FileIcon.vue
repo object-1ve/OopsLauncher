@@ -6,7 +6,7 @@
         settings.appearance.itemLayout === 'tile'
           ? {
               width: settings.appearance.iconSize * 1.6 + 'px',
-              height: settings.appearance.iconSize * 2.4 + 'px',
+              height: settings.appearance.iconSize * 2 + 'px',
             }
           : {
               width: '100%',
@@ -89,18 +89,18 @@ const handleContextMenu = (e) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   border-radius: v-bind("settings.appearance.css.borderRadius");
   cursor: pointer;
   transition: all 0.2s ease;
   margin: v-bind("settings.appearance.css.itemMargin");
-  padding: v-bind("settings.appearance.css.itemPadding");
+  padding: calc(v-bind("settings.appearance.css.itemPadding") / 2);
 }
 
 .list .icon-item {
   flex-direction: row;
   justify-content: flex-start;
-  padding: 0 v-bind("settings.appearance.css.itemPadding");
+  padding: 0 calc(v-bind("settings.appearance.css.itemPadding") / 2);
 }
 
 .icon-item:hover {
@@ -126,7 +126,6 @@ const handleContextMenu = (e) => {
   object-fit: contain;
   background-color: transparent; /* 确保背景透明 */
   mix-blend-mode: multiply; /* 可选：如果是白色背景的jpg，可以尝试混合 */
-  margin-top: 5px;
 }
 
 .file-icon-emoji {
@@ -139,20 +138,20 @@ const handleContextMenu = (e) => {
   color: v-bind("settings.appearance.css.textColor");
   text-align: center;
   width: 100%;
-
-  /* 多行显示逻辑 (最多2行) */
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2; /* 最多显示2行 */
+  -webkit-line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: v-bind("settings.appearance.css.lineHeight");
-  max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2); /* 2行的高度 */
-  word-break: break-all; /* 确保长单词也能换行 */
+  height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
+  max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
+  word-break: break-all;
 }
 
 .list .file-name {
   text-align: left;
+  height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
   max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
 }
 </style>

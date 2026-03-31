@@ -40,7 +40,20 @@
 
         <li class="context-menu-divider"></li>
       </template>
-
+      <li class="context-menu-item submenu-parent">
+        <div class="menu-item-content">
+          分类方式
+          <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+        </div>
+        <ul class="context-submenu">
+          <li @click="handleClassify('none')" class="context-menu-item" :class="{ active: classifyMethod === 'none' }">
+            <span>不分类</span>
+          </li>
+          <li @click="handleClassify('type')" class="context-menu-item" :class="{ active: classifyMethod === 'type' }">
+            <span>按文件类型分类</span>
+          </li>
+        </ul>
+      </li>
       <!-- 排序方式 (始终显示) -->
       <li class="context-menu-item submenu-parent">
         <div class="menu-item-content">
@@ -71,6 +84,7 @@
           </li>
         </ul>
       </li>
+
 
       <!-- 显示设置 (始终显示) -->
       <li class="context-menu-item submenu-parent">
@@ -128,6 +142,10 @@ const props = defineProps({
     type: String,
     default: 'asc'
   },
+  classifyMethod: {
+    type: String,
+    default: 'none'
+  },
   showFileName: {
     type: Boolean,
     default: true
@@ -139,7 +157,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation", "copyPath", "openWith", "editInfo", "sort", "toggleDisplay", "copyToCategory"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory"]);
 
 // 菜单元素引用
 const menuRef = ref(null);
@@ -238,6 +256,11 @@ const handleEditInfo = () => {
 // 方法：处理排序
 const handleSort = (method) => {
   emit("sort", method);
+  emit("hide");
+};
+
+const handleClassify = (method) => {
+  emit("classify", method);
   emit("hide");
 };
 

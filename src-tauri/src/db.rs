@@ -60,6 +60,14 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
         []
     ).map_err(|e| e.to_string())?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )",
+        []
+    ).map_err(|e| e.to_string())?;
+
     // 检查并手动进行数据库迁移
     // 获取当前 files 表的所有列名
     let mut stmt = conn.prepare("PRAGMA table_info(files)").map_err(|e| e.to_string())?;

@@ -82,16 +82,15 @@ defineExpose({
 
 <style scoped>
 .menu-item {
-  height: 40px;
+  min-height: 40px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 0 20px 0 20px;
+  padding: 8px 20px;
   font-size: 14px;
   color: #303133;
   cursor: pointer;
   transition: all 0.2s;
-  white-space: nowrap;
 }
 
 .menu-item:hover {
@@ -106,7 +105,7 @@ defineExpose({
 
 .item-content {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   overflow: hidden;
   flex: 1;
@@ -118,6 +117,8 @@ defineExpose({
 
 .item-name {
   overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.3;
+  word-break: break-all;
 }
 </style>

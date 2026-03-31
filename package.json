@@ -1,7 +1,7 @@
 {
   "name": "oopslauncher",
   "private": true,
-  "version": "0.3.23",
+  "version": "0.3.42",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "tdev": "tauri dev",
     "tbuild": "tauri build",
-    "tbundle": "tauri build --bundles"
+    "tbundle": "tauri build --bundles",
+    "sync:version": "node scripts/sync-version.js"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
