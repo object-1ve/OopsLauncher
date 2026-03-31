@@ -6,11 +6,11 @@
         settings.appearance.itemLayout === 'tile'
           ? {
               width: settings.appearance.iconSize * 1.6 + 'px',
-              height: settings.appearance.iconSize * 2 + 'px',
+              height: settings.appearance.iconSize * 2.4 + 'px',
             }
           : {
               width: '100%',
-              height: settings.appearance.iconSize + 16 + 'px',
+              height: settings.appearance.iconSize + 20 + 'px',
             }
       "
       :title="`名称: ${file.displayName || file.name}\n打开次数: ${
@@ -105,7 +105,7 @@ const handleContextMenu = (e) => {
 
 .icon-item:hover {
   background-color: v-bind("settings.appearance.css.hoverColor");
-  height: 60px;
+  opacity: 1;
 }
 
 .icon-wrapper {
@@ -140,20 +140,19 @@ const handleContextMenu = (e) => {
   text-align: center;
   width: 100%;
 
-  /* 单行显示逻辑 */
+  /* 多行显示逻辑 (最多2行) */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; /* 最多显示2行 */
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap; /* 禁止换行 */
-  line-height: v-bind("settings.appearance.css.lineHeight"); /* 优化行高 */
-  height: v-bind("settings.appearance.css.lineHeight"); /* 固定高度，只显示一行 */
+  line-height: v-bind("settings.appearance.css.lineHeight");
+  max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2); /* 2行的高度 */
+  word-break: break-all; /* 确保长单词也能换行 */
 }
 
 .list .file-name {
   text-align: left;
-  height: v-bind("settings.appearance.css.lineHeight");
-}
-
-.icon-item:hover {
-  opacity: 1;
+  max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
 }
 </style>

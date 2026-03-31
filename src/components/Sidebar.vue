@@ -324,6 +324,10 @@ onUnmounted(() => {
   border-right: 3px solid #409eff;
 }
 
+.menu-item.special-item:active {
+  cursor: pointer;
+}
+
 .item-content {
   display: flex;
   align-items: center;

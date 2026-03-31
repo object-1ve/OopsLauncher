@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { ElMessage } from 'element-plus'
@@ -22,7 +22,14 @@ const generateDisplayName = (fileName) => {
 }
 
 // Global state
-const currentCategory = ref('main') // 这里存储分类的 ID
+const initialCategory = localStorage.getItem('oopslauncher_current_category') || 'main'
+const currentCategory = ref(initialCategory) // 这里存储分类的 ID
+
+// 监听分类变化并保存到 localStorage
+watch(currentCategory, (newVal) => {
+  localStorage.setItem('oopslauncher_current_category', newVal)
+})
+
 const customCategories = ref([])
 const filesByCategory = ref({
   'main': [] // key 是分类的 ID
