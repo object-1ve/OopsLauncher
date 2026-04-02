@@ -344,3 +344,76 @@ pub fn open_with_dialog(path: String) -> Result<(), String> {
         return Err("当前平台暂不支持“打开方式”对话框".to_string());
     }
 }
+
+#[tauri::command]
+pub fn open_terminal(path: String) -> Result<(), String> {
+    let path = path.trim();
+    if path.is_empty() {
+        return Err("path is empty".to_string());
+    }
+
+    let path = to_abs_path(path)?;
+    // 解析快捷方式，确保如果是指向目录的快捷方式，能在目标目录打开
+    let resolved_path = resolve_shortcut(&path);
+    let p = Path::new(&resolved_path);
+    
+    if !p.exists() {
+        return Err(format!("path does not exist: {}", resolved_path));
+    }
+
+    let target_dir = if p.is_dir() {
+        p.to_path_buf()
+    } else {
+        p.parent()
+            .ok_or_else(|| format!("cannot resolve parent directory: {}", resolved_path))?
+            .to_path_buf()
+    };
+
+    #[cfg(target_os = "windows")]
+    {
+        // 使用 cmd /c start 来确保在 Windows 上打开一个全新的独立终端窗口
+        // 这样可以避免在开发环境下占用当前控制台，并确保路径跳转正确
+        let target_str = target_dir.to_string_lossy();
+        let escaped_path = target_str.replace('\'', "''");
+        
+        // 构建 powershell 命令字符串，使用 -NoExit 保持窗口开启，并使用 Set-Location 跳转目录
+        let ps_command = format!("Set-Location -LiteralPath '{}'", escaped_path);
+        
+        Command::new("cmd")
+            .args(["/c", "start", "powershell", "-NoExit", "-Command", &ps_command])
+            .current_dir(&target_dir)
+            .spawn()
+            .map_err(|e| format!("无法启动终端窗口: {}", e))?;
+        
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // macOS 下 Terminal 可以直接接受目录作为参数
+        Command::new("open")
+            .args(["-a", "Terminal", target_dir.to_string_lossy().as_ref()])
+            .current_dir(&target_dir)
+            .spawn()
+            .map_err(|e| format!("无法启动终端: {}", e))?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let dir = target_dir.to_string_lossy().to_string();
+        let candidates = [
+            ("x-terminal-emulator", vec!["--working-directory", &dir]),
+            ("gnome-terminal", vec!["--working-directory", &dir]),
+            ("konsole", vec!["--workdir", &dir]),
+            ("xfce4-terminal", vec!["--working-directory", &dir]),
+        ];
+
+        for (cmd, args) in candidates {
+            if Command::new(cmd).args(&args).current_dir(&target_dir).spawn().is_ok() {
+                return Ok(());
+            }
+        }
+        return Err("未找到可用终端程序".to_string());
+    }
+}

@@ -26,6 +26,7 @@
       @delete="handleContextMenuDelete"
       @hide="hideContextMenu"
       @openLocation="handleOpenLocation"
+      @openTerminal="handleOpenTerminal"
       @copyPath="handleCopyPath"
       @openWith="handleOpenWith"
       @editInfo="handleEditInfo"
@@ -175,6 +176,23 @@ const handleOpenLocation = async (file) => {
   } catch (error) {
     console.error('Failed to open file location:', error)
     alert(`打开文件所在位置失败: ${error.message}`)
+  }
+}
+
+const handleOpenTerminal = async (file) => {
+  try {
+    if (file && file.path) {
+      const isTauri = !!window.__TAURI_INTERNALS__;
+
+      if (isTauri) {
+        await invoke('open_terminal', { path: file.path })
+      } else {
+        alert(`在浏览器环境中无法打开终端: ${file.path}`)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to open terminal:', error)
+    alert(`在终端打开失败: ${error.message}`)
   }
 }
 

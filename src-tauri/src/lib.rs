@@ -35,6 +35,7 @@ pub fn run() {
             commands::file::open_path,
             commands::file::open_file_location,
             commands::file::open_with_dialog,
+            commands::file::open_terminal,
             commands::category::save_categories_to_db,
             commands::category::load_categories_from_db,
             commands::category::rename_category_in_db,
