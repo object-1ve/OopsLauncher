@@ -1,7 +1,7 @@
 {
   "name": "oopslauncher",
   "private": true,
-  "version": "0.3.42",
+  "version": "0.3.51",
   "type": "module",
   "scripts": {
     "dev": "vite",

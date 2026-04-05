@@ -147,6 +147,8 @@ const handleContextMenu = (e) => {
   height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
   max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
   word-break: break-all;
+  padding: 0 4px;
+  box-sizing: border-box;
 }
 
 .list .file-name {

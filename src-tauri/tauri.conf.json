@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "OopsLauncher",
-  "version": "0.3.42",
+  "version": "0.3.51",
   "identifier": "com.oopslauncher.app",
   "build": {
     "frontendDist": "../dist",

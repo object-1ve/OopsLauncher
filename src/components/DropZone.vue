@@ -147,8 +147,8 @@ const handleEmptyContextMenu = (e) => {
 .icons-container {
   height: 100%;
   overflow-y: auto;
-  padding: 10px;
-  /* 减小内边距 */
+  padding: 10px 0px 10px 10px;
+  /* 增加左右内边距 */
 }
 
 .row-container {

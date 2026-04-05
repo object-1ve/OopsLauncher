@@ -482,11 +482,21 @@ const updateAutoStart = async () => {
   }
 };
 
+const persistAutoStartSettings = async () => {
+  if (!window.__TAURI_INTERNALS__) return;
+  try {
+    await invoke("save_settings_to_json", { settings: settings.value });
+  } catch (err) {
+    console.error("Failed to persist autostart settings:", err);
+  }
+};
+
 // 监听开机启动相关设置
 watch(
   [() => settings.value.general.autoStart, () => settings.value.general.autoStartMinimized],
-  () => {
-    updateAutoStart();
+  async () => {
+    await updateAutoStart();
+    await persistAutoStartSettings();
   }
 );
 

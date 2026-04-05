@@ -48,6 +48,8 @@ pub fn run() {
             commands::app::exit_app,
             commands::settings::save_launcher_state_to_db,
             commands::settings::load_launcher_state_from_db,
+            commands::settings::save_settings_to_json,
+            commands::settings::load_settings_from_json,
         ])
         .setup(|app| {
             // 初始化数据库
