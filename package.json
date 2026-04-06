@@ -1,7 +1,7 @@
 {
   "name": "oopslauncher",
   "private": true,
-  "version": "0.3.51",
+  "version": "0.4.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,8 +10,8 @@
     "tauri": "tauri",
     "tdev": "tauri dev",
     "tbuild": "tauri build",
-    "tbundle": "tauri build --bundles",
-    "sync:version": "node scripts/sync-version.js"
+    "tbundle": "tauri build --bundles msi",
+    "v": "node scripts/sync-version.js"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
@@ -23,6 +23,7 @@
     "@tauri-apps/plugin-notification": "^2.3.0",
     "@tauri-apps/plugin-shell": "^2.3.0",
     "element-plus": "^2.13.1",
+    "pinia": "^3.0.4",
     "sass": "^1.97.3",
     "sortablejs": "^1.15.6",
     "vue": "^3.4.0",

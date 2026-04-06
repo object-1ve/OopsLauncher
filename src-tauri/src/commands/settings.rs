@@ -1,7 +1,7 @@
 use crate::db::get_db_connection;
 use crate::models::LauncherState;
 use std::fs;
-use tauri::Manager;
+use tauri::{AppHandle, Emitter, Manager};
 
 fn sanitize_launcher_state(state: LauncherState) -> LauncherState {
     let current_category = if state.current_category.trim().is_empty() {
@@ -30,7 +30,7 @@ fn sanitize_launcher_state(state: LauncherState) -> LauncherState {
 }
 
 #[tauri::command]
-pub fn save_launcher_state_to_db(app: tauri::AppHandle, state: LauncherState) -> Result<(), String> {
+pub fn save_launcher_state_to_db(app: AppHandle, state: LauncherState) -> Result<(), String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join("launcher_state.json");
@@ -42,7 +42,7 @@ pub fn save_launcher_state_to_db(app: tauri::AppHandle, state: LauncherState) ->
 }
 
 #[tauri::command]
-pub fn load_launcher_state_from_db(app: tauri::AppHandle) -> Result<LauncherState, String> {
+pub fn load_launcher_state_from_db(app: AppHandle) -> Result<LauncherState, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let path = dir.join("launcher_state.json");
     
@@ -88,18 +88,22 @@ pub fn load_launcher_state_from_db(app: tauri::AppHandle) -> Result<LauncherStat
 // ================== JSON Settings ==================
 
 #[tauri::command]
-pub fn save_settings_to_json(app: tauri::AppHandle, settings: serde_json::Value) -> Result<(), String> {
+pub fn save_settings_to_json(app: AppHandle, settings: serde_json::Value) -> Result<(), String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join("settings.json");
     
     let content = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(path, content).map_err(|e| e.to_string())?;
+    
+    // 发送设置变更事件通知所有窗口
+    let _ = app.emit("settings-changed", settings);
+    
     Ok(())
 }
 
 #[tauri::command]
-pub fn load_settings_from_json(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+pub fn load_settings_from_json(app: AppHandle) -> Result<serde_json::Value, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let path = dir.join("settings.json");
     

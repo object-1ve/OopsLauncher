@@ -6,7 +6,6 @@
         settings.appearance.itemLayout === 'tile'
           ? {
               width: settings.appearance.iconSize * 1.6 + 'px',
-              height: settings.appearance.iconSize * 2 + 'px',
             }
           : {
               width: '100%',
@@ -144,8 +143,7 @@ const handleContextMenu = (e) => {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: v-bind("settings.appearance.css.lineHeight");
-  height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
-  max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
+  max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2em);
   word-break: break-all;
   padding: 0 4px;
   box-sizing: border-box;
@@ -153,7 +151,6 @@ const handleContextMenu = (e) => {
 
 .list .file-name {
   text-align: left;
-  height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
-  max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2);
+  max-height: calc(v-bind("settings.appearance.css.lineHeight") * 2em);
 }
 </style>

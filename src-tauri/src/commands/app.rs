@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Window};
+use tauri::{AppHandle, Manager, Window};
 
 #[tauri::command]
 pub fn get_app_version(app: AppHandle) -> String {
@@ -6,7 +6,10 @@ pub fn get_app_version(app: AppHandle) -> String {
 }
 
 #[tauri::command]
-pub fn set_skip_taskbar(window: Window, skip: bool) -> Result<(), String> {
+pub fn set_skip_taskbar(app: AppHandle, skip: bool) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "Main window not found".to_string())?;
     window.set_skip_taskbar(skip).map_err(|e| e.to_string())
 }
 
