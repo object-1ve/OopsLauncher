@@ -2,6 +2,7 @@
   <div :class="settings.appearance.itemLayout">
     <div
       class="icon-item"
+      :data-file-id="file.id"
       :style="
         settings.appearance.itemLayout === 'tile'
           ? {
@@ -12,9 +13,7 @@
               height: settings.appearance.iconSize + 20 + 'px',
             }
       "
-      :title="`名称: ${file.displayName || file.name}\n打开次数: ${
-        file.openCount || 0
-      }\n位置: ${file.path || '未知'}`"
+      :title="fileHoverTitle"
       @click="handleFileClick"
       @contextmenu="handleContextMenu"
     >
@@ -49,9 +48,12 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { useSettings } from "@/composables/useSettings";
+import { useFiles, SPECIAL_CATEGORIES } from "@/composables/useFiles";
 
 const { settings } = useSettings();
+const { currentCategory, allCategories } = useFiles();
 
 // Props
 const props = defineProps({
@@ -59,6 +61,27 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+});
+
+const sourceCategoryName = computed(() => {
+  const categoryId = props.file?.category;
+  if (!categoryId) return "未知";
+  const matchedCategory = allCategories.value.find((cat) => cat.id === categoryId);
+  return matchedCategory?.name || categoryId;
+});
+
+const fileHoverTitle = computed(() => {
+  const baseLines = [
+    `名称: ${props.file.displayName || props.file.name || "未知"}`,
+    `打开次数: ${props.file.openCount || 0}`,
+    `位置: ${props.file.path || "未知"}`,
+  ];
+
+  if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
+    baseLines.push(`来源分类: ${sourceCategoryName.value}`);
+  }
+
+  return baseLines.join("\n");
 });
 
 // Emits
@@ -105,6 +128,12 @@ const handleContextMenu = (e) => {
 .icon-item:hover {
   background-color: v-bind("settings.appearance.css.hoverColor");
   opacity: 1;
+}
+
+.icon-item.locating-highlight {
+  outline: 2px solid #409eff;
+  outline-offset: -2px;
+  background-color: rgba(64, 158, 255, 0.12);
 }
 
 .icon-wrapper {

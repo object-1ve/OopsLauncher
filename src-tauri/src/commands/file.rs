@@ -21,7 +21,7 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
     
     // 插入新数据
     let mut stmt = tx.prepare(
-        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes, is_pinned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).map_err(|e| e.to_string())?;
 
     for file in files {
@@ -61,7 +61,8 @@ pub fn save_files_to_db(app: tauri::AppHandle, files: Vec<FileInfo>) -> Result<(
                 category_id,
                 file.open_count.unwrap_or(0) as i64,
                 created_at,
-                &file.notes
+                &file.notes,
+                if file.is_pinned.unwrap_or(false) { 1 } else { 0 }
             ]
         ).map_err(|e| {
             println!("Failed to save file {} to DB: {}", file.name, e);
@@ -88,7 +89,7 @@ pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String
     println!("Loading files from database...");
     let conn = get_db_connection(&app)?;
     
-    let mut stmt = conn.prepare("SELECT id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes FROM files ORDER BY open_count DESC")
+    let mut stmt = conn.prepare("SELECT id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes, is_pinned FROM files ORDER BY open_count DESC")
         .map_err(|e| {
             println!("Failed to prepare select statement: {}", e);
             e.to_string()
@@ -106,6 +107,7 @@ pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String
         let open_count: i64 = row.get(9).unwrap_or(0);
         let created_at: Option<i64> = row.get(10).ok();
         let notes: Option<String> = row.get(11).ok();
+        let is_pinned: i64 = row.get(12).unwrap_or(0);
 
         Ok(FileInfo {
             id: row.get(0)?,
@@ -120,6 +122,7 @@ pub fn load_files_from_db(app: tauri::AppHandle) -> Result<Vec<FileInfo>, String
             open_count: Some(open_count as u64),
             created_at,
             notes,
+            is_pinned: Some(is_pinned != 0),
         })
     }).map_err(|e| {
         println!("Failed to query files: {}", e);
@@ -222,6 +225,7 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
         open_count: None,
         created_at: Some(created_at),
         notes: None,
+        is_pinned: Some(false),
     })
 }
 

@@ -43,6 +43,7 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
             open_count INTEGER DEFAULT 0,
             created_at INTEGER,
             notes TEXT,
+            is_pinned INTEGER DEFAULT 0,
             UNIQUE(category, path)
         )",
         []
@@ -137,6 +138,14 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
         ).map_err(|e| e.to_string())?;
     }
 
+    if !columns.contains(&"is_pinned".to_string()) {
+        println!("Adding is_pinned column to files table...");
+        conn.execute(
+            "ALTER TABLE files ADD COLUMN is_pinned INTEGER DEFAULT 0",
+            []
+        ).map_err(|e| e.to_string())?;
+    }
+
     // 检查是否仍存在旧的 UNIQUE(path) 约束
     let mut stmt = conn.prepare("PRAGMA index_list(files)").map_err(|e| e.to_string())?;
     let indexes: Vec<(String, bool)> = stmt.query_map([], |row| {
@@ -184,6 +193,7 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
                 open_count INTEGER DEFAULT 0,
                 created_at INTEGER,
                 notes TEXT,
+                is_pinned INTEGER DEFAULT 0,
                 UNIQUE(category, path)
             )",
             []
@@ -191,7 +201,7 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
 
         tx.execute(
             "INSERT OR IGNORE INTO files (
-                id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes
+                id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes, is_pinned
             )
             SELECT
                 id,
@@ -205,7 +215,8 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
                 COALESCE(category, 'main'),
                 COALESCE(open_count, 0),
                 created_at,
-                notes
+                notes,
+                0
             FROM files_old",
             []
         ).map_err(|e| e.to_string())?;

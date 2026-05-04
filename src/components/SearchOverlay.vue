@@ -24,6 +24,7 @@
             :class="{ active: selectedIndex === index }"
             @click="handleSelect(file)"
             @mouseover="selectedIndex = index"
+            @contextmenu.prevent.stop="handleResultContextMenu($event, file)"
           >
             <div class="item-icon">
               <img v-if="file.icon && file.icon.startsWith('data:')" :src="file.icon" alt="" />
@@ -57,10 +58,21 @@
       </div>
     </div>
   </transition>
+  <div
+    v-if="resultMenu.visible"
+    class="result-context-menu"
+    :style="{ left: `${resultMenu.x}px`, top: `${resultMenu.y}px` }"
+    @click.stop
+    @contextmenu.prevent
+  >
+    <div class="result-context-item" @click="handleLocateFile">
+      定位到此文件
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { useFiles } from '@/composables/useFiles'
 
@@ -69,11 +81,18 @@ const {
   globalSearchResults, 
   showSearchOverlay, 
   openFile,
-  allCategories
+  allCategories,
+  switchCategory
 } = useFiles()
 
 const searchInput = ref(null)
 const selectedIndex = ref(0)
+const resultMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  file: null
+})
 
 const getCategoryName = (catId) => {
   const cat = allCategories.value.find(c => c.id === catId)
@@ -83,6 +102,7 @@ const getCategoryName = (catId) => {
 const closeSearch = () => {
   showSearchOverlay.value = false
   searchQuery.value = ''
+  hideResultMenu()
 }
 
 const handleSelect = (file) => {
@@ -93,6 +113,42 @@ const handleSelect = (file) => {
 const handleEnter = () => {
   if (globalSearchResults.value.length > 0) {
     handleSelect(globalSearchResults.value[selectedIndex.value])
+  }
+}
+
+const hideResultMenu = () => {
+  resultMenu.value.visible = false
+  resultMenu.value.file = null
+}
+
+const handleResultContextMenu = (event, file) => {
+  resultMenu.value = {
+    visible: true,
+    x: event.clientX,
+    y: event.clientY,
+    file
+  }
+}
+
+const handleLocateFile = () => {
+  const file = resultMenu.value.file
+  if (!file) return
+  if (file.category) {
+    switchCategory(file.category)
+  }
+  hideResultMenu()
+  closeSearch()
+  window.dispatchEvent(new CustomEvent('locate-file', {
+    detail: {
+      fileId: file.id,
+      categoryId: file.category
+    }
+  }))
+}
+
+const handleDocumentClick = () => {
+  if (resultMenu.value.visible) {
+    hideResultMenu()
   }
 }
 
@@ -120,6 +176,14 @@ watch(showSearchOverlay, (val) => {
 
 watch(searchQuery, () => {
   selectedIndex.value = 0
+})
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
@@ -186,6 +250,10 @@ watch(searchQuery, () => {
   padding: 12px 20px;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.result-item:hover {
+  background-color: #f8fbff;
 }
 
 .result-item.active {
@@ -296,5 +364,27 @@ watch(searchQuery, () => {
 }
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
+}
+
+.result-context-menu {
+  position: fixed;
+  z-index: 10001;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  min-width: 140px;
+  padding: 4px 0;
+}
+
+.result-context-item {
+  padding: 7px 12px;
+  font-size: 13px;
+  color: #303133;
+  cursor: pointer;
+}
+
+.result-context-item:hover {
+  background-color: #f5f7fa;
 }
 </style>

@@ -4,6 +4,7 @@
     <ul class="context-menu-list">
       <!-- 文件操作项 -->
       <template v-if="selectedFileId">
+
         <li @click="handleOpenLocation" class="context-menu-item">
           打开文件所在位置
         </li>
@@ -19,10 +20,17 @@
         <li @click="handleEditInfo" class="context-menu-item">
           编辑信息
         </li>
+        <li v-if="showPinToggle" @click="handleTogglePin" class="context-menu-item">
+          {{ selectedFileIsPinned ? '取消置顶' : '置顶' }}
+        </li>
         <li @click="handleDelete" class="context-menu-item">
           删除
         </li>
-
+        <li class="context-menu-divider"></li>
+        <li v-if="showLocateToCategory" @click="handleLocateToCategory" class="context-menu-item">
+          定位到对应分类
+        </li>
+        <li class="context-menu-divider"></li>
         <!-- 复制到其他分类 -->
         <li v-if="targetCategories.length > 0" class="context-menu-item submenu-parent">
           <div class="menu-item-content">
@@ -42,6 +50,7 @@
         </li>
 
         <li class="context-menu-divider"></li>
+
       </template>
       <li class="context-menu-item submenu-parent">
         <div class="menu-item-content">
@@ -102,6 +111,7 @@
           </li>
         </ul>
       </li>
+
     </ul>
   </div>
 </template>
@@ -156,11 +166,23 @@ const props = defineProps({
   categories: {
     type: Array,
     default: () => []
+  },
+  showLocateToCategory: {
+    type: Boolean,
+    default: false
+  },
+  showPinToggle: {
+    type: Boolean,
+    default: false
+  },
+  selectedFileIsPinned: {
+    type: Boolean,
+    default: false
   }
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation", "openTerminal", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "openTerminal", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory", "locateToCategory", "togglePin"]);
 
 // 菜单元素引用
 const menuRef = ref(null);
@@ -233,6 +255,13 @@ const handleOpenLocation = () => {
   }
 };
 
+const handleLocateToCategory = () => {
+  if (props.selectedFile) {
+    emit("locateToCategory", props.selectedFile);
+    emit("hide");
+  }
+};
+
 const handleOpenTerminal = () => {
   if (props.selectedFile) {
     emit("openTerminal", props.selectedFile);
@@ -259,6 +288,13 @@ const handleOpenWith = () => {
 const handleEditInfo = () => {
   if (props.selectedFile) {
     emit("editInfo", props.selectedFile);
+    emit("hide");
+  }
+};
+
+const handleTogglePin = () => {
+  if (props.selectedFile) {
+    emit("togglePin", props.selectedFile);
     emit("hide");
   }
 };

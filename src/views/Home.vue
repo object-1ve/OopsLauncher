@@ -2,6 +2,7 @@
   <div class="home-view">
     <!-- 使用DropZone组件 -->
     <DropZone 
+      :pinnedCurrentFiles="pinnedCurrentFiles"
       :currentFiles="currentFiles"
       :groupedCurrentFiles="groupedCurrentFiles"
       :classifyMethod="classifyMethod"
@@ -23,6 +24,9 @@
       :classifyMethod="classifyMethod"
       :showFileName="settings.appearance.showFileName"
       :categories="allCategories"
+      :showLocateToCategory="currentCategory === SPECIAL_CATEGORIES.ALL_FILES && !!contextMenu.selectedFile?.category"
+      :showPinToggle="!!contextMenu.selectedFile?.category"
+      :selectedFileIsPinned="!!contextMenu.selectedFile?.isPinned"
       @delete="handleContextMenuDelete"
       @hide="hideContextMenu"
       @openLocation="handleOpenLocation"
@@ -34,6 +38,8 @@
       @classify="handleClassify"
       @toggleDisplay="handleToggleDisplay"
       @copyToCategory="handleCopyToCategory"
+      @locateToCategory="handleLocateToCategory"
+      @togglePin="handleTogglePin"
     />
     
     <!-- 文件信息编辑弹窗 -->
@@ -47,11 +53,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import DropZone from '@/components/DropZone.vue'
 import ContextMenu from '@/components/ContextMenu.vue'
 import FileInfoDialog from '@/components/FileInfoDialog.vue'
-import { useFiles } from '@/composables/useFiles'
+import { useFiles, SPECIAL_CATEGORIES } from '@/composables/useFiles'
 import { useSettings } from '@/composables/useSettings'
 import { useContextMenu } from '@/composables/useContextMenu'
 import { invoke } from '@tauri-apps/api/core'
@@ -59,6 +65,8 @@ import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { ElMessage } from 'element-plus'
 
 const { 
+  currentCategory,
+  pinnedCurrentFiles,
   currentFiles, 
   groupedCurrentFiles,
   filesByCategory,
@@ -68,11 +76,13 @@ const {
   loadFiles,
   setupTauriListeners,
   saveFiles,
+  switchCategory,
   sortMethod,
   sortOrder,
   classifyMethod,
   allCategories,
-  copyFileToCategory
+  copyFileToCategory,
+  togglePinFile
 } = useFiles()
 
 const { settings } = useSettings()
@@ -303,9 +313,65 @@ const handleCopyToCategory = async ({ file, targetCategoryId }) => {
   hideContextMenu()
 }
 
+const handleLocateToCategory = (file) => {
+  if (!file?.id || !file?.category) return
+  window.dispatchEvent(new CustomEvent('locate-file', {
+    detail: {
+      fileId: file.id,
+      categoryId: file.category
+    }
+  }))
+  hideContextMenu()
+}
+
+const handleTogglePin = async (file) => {
+  const result = await togglePinFile(file)
+  if (!result.success) {
+    ElMessage.error('置顶操作失败')
+    return
+  }
+  ElMessage.success(result.isPinned ? '已置顶' : '已取消置顶')
+  hideContextMenu()
+}
+
 // 方法：点击空白处隐藏右键菜单
 const handleDocumentClick = () => {
   hideContextMenu()
+}
+
+let locateHighlightTimer = null
+
+const clearLocateHighlight = () => {
+  if (locateHighlightTimer) {
+    clearTimeout(locateHighlightTimer)
+    locateHighlightTimer = null
+  }
+  const highlighted = document.querySelector('.icon-item.locating-highlight')
+  if (highlighted) {
+    highlighted.classList.remove('locating-highlight')
+  }
+}
+
+const handleLocateFileEvent = async (event) => {
+  const { fileId, categoryId } = event.detail || {}
+  if (!fileId) return
+
+  if (categoryId) {
+    switchCategory(categoryId)
+  }
+
+  await nextTick()
+
+  const target = document.querySelector(`.icon-item[data-file-id="${fileId}"]`)
+  if (!target) return
+
+  clearLocateHighlight()
+  target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+  target.classList.add('locating-highlight')
+  locateHighlightTimer = setTimeout(() => {
+    target.classList.remove('locating-highlight')
+    locateHighlightTimer = null
+  }, 1600)
 }
 
 onMounted(async () => {
@@ -313,10 +379,13 @@ onMounted(async () => {
   await loadFiles()
   await setupTauriListeners()
   document.addEventListener('click', handleDocumentClick)
+  window.addEventListener('locate-file', handleLocateFileEvent)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('locate-file', handleLocateFileEvent)
+  clearLocateHighlight()
 })
 </script>
 

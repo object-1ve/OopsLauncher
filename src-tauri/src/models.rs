@@ -15,6 +15,7 @@ pub struct FileInfo {
     pub open_count: Option<u64>,
     pub created_at: Option<i64>,
     pub notes: Option<String>,
+    pub is_pinned: Option<bool>,
 }
 
 // 分类结构体

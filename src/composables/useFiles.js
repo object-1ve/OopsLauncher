@@ -118,6 +118,12 @@ let tauriListenersSet = false;
 
 const sortFiles = (files) => {
   return [...files].sort((a, b) => {
+    const aPinned = !!a.isPinned
+    const bPinned = !!b.isPinned
+    if (aPinned !== bPinned) {
+      return aPinned ? -1 : 1
+    }
+
     let result = 0
     const getFileType = (file) => {
       if (file.type) return String(file.type).toLowerCase()
@@ -147,7 +153,14 @@ const getCurrentCategoryFiles = () => {
     const allFiles = Object.values(filesByCategory.value).flat()
     const uniqueFilesMap = new Map()
     allFiles.forEach(file => {
-      if (!uniqueFilesMap.has(file.path) || (file.openCount || 0) > (uniqueFilesMap.get(file.path).openCount || 0)) {
+      if (
+        !uniqueFilesMap.has(file.path) ||
+        (!!file.isPinned && !uniqueFilesMap.get(file.path)?.isPinned) ||
+        (
+          !!file.isPinned === !!uniqueFilesMap.get(file.path)?.isPinned &&
+          (file.openCount || 0) > (uniqueFilesMap.get(file.path).openCount || 0)
+        )
+      ) {
         uniqueFilesMap.set(file.path, file)
       }
     })
@@ -193,11 +206,15 @@ const globalSearchResults = computed(() => {
 })
 
 const currentFiles = computed(() => {
-  return sortFiles(getCurrentCategoryFiles())
+  return sortFiles(getCurrentCategoryFiles().filter(file => !file.isPinned))
+})
+
+const pinnedCurrentFiles = computed(() => {
+  return sortFiles(getCurrentCategoryFiles().filter(file => !!file.isPinned))
 })
 
 const groupedCurrentFiles = computed(() => {
-  const files = getCurrentCategoryFiles()
+  const files = getCurrentCategoryFiles().filter(file => !file.isPinned)
   if (classifyMethod.value !== 'type') {
     return [{
       type: 'all',
@@ -408,7 +425,8 @@ export function useFiles() {
               category: String(categoryId || 'main'),
               open_count: Number(file.openCount || file.open_count || 0),
               created_at: Number(file.created_at || Date.now()),
-              notes: file.notes || null
+              notes: file.notes || null,
+              is_pinned: !!file.isPinned
             }
             allFiles.push(fileToSave)
           }
@@ -546,7 +564,7 @@ export function useFiles() {
           const targetId = organizedFiles[categoryId] ? categoryId : customCategories.value[0].id
           
           // 转换字段名并保留 category 属性 (存储的是 ID)
-          const { open_count, display_name, created_at, notes, ...otherFields } = file
+          const { open_count, display_name, created_at, notes, is_pinned, ...otherFields } = file
           const fileWithFormattedFields = {
             ...otherFields,
             openCount: open_count || 0,
@@ -554,7 +572,8 @@ export function useFiles() {
             category: targetId,
             // 如果数据库里没时间（老数据），加载时补全，避免每次保存都变
             created_at: created_at || Date.now(),
-            notes: notes || ''
+            notes: notes || '',
+            isPinned: !!is_pinned
           }
           const dedupeKey = `${targetId}::${normalizePathKey(fileWithFormattedFields.path)}`
           if (seenCategoryPath.has(dedupeKey)) {
@@ -609,6 +628,7 @@ export function useFiles() {
           fileInfo.category = currentCategory.value;
           fileInfo.displayName = fileInfo.display_name || generateDisplayName(fileInfo.name);
           fileInfo.notes = fileInfo.notes || '';
+          fileInfo.isPinned = !!fileInfo.is_pinned;
         } catch (error) {
           console.error(`Failed to get file info for ${file.name}:`, error);
           isError = true;
@@ -629,7 +649,8 @@ export function useFiles() {
           icon: await getFileIcon(file),
           category: currentCategory.value,
           created_at: Date.now(),
-          notes: ''
+          notes: '',
+          isPinned: false
         }
       }
       
@@ -684,11 +705,24 @@ export function useFiles() {
       id: newId,
       category: targetCategoryId,
       openCount: 0,
-      created_at: Date.now()
+      created_at: Date.now(),
+      isPinned: false
     }
     filesByCategory.value[targetCategoryId].push(copiedFile)
     await saveFiles()
     return { success: true }
+  }
+
+  const togglePinFile = async (file) => {
+    if (!file?.id || !file?.category) return { success: false }
+    const categoryFiles = filesByCategory.value[file.category]
+    if (!Array.isArray(categoryFiles)) return { success: false }
+    const index = categoryFiles.findIndex((f) => f.id === file.id)
+    if (index === -1) return { success: false }
+    const updatedFile = { ...categoryFiles[index], isPinned: !categoryFiles[index].isPinned }
+    categoryFiles[index] = updatedFile
+    await saveFiles()
+    return { success: true, isPinned: !!updatedFile.isPinned }
   }
 
   const openFile = async (file) => {
@@ -754,6 +788,7 @@ export function useFiles() {
                 fileInfo.displayName = fileInfo.display_name || generateDisplayName(fileInfo.name)
                 fileInfo.created_at = fileInfo.created_at || Date.now()
                 fileInfo.notes = fileInfo.notes || ''
+                fileInfo.isPinned = !!fileInfo.is_pinned
                 filesByCategory.value[currentCategory.value].push(fileInfo)
                 addedCount++;
               } catch (error) {
@@ -786,6 +821,7 @@ export function useFiles() {
     currentCategory,
     filesByCategory,
     currentFiles,
+    pinnedCurrentFiles,
     groupedCurrentFiles,
     allCategories,
     switchCategory,
@@ -798,6 +834,7 @@ export function useFiles() {
     deleteFile,
     openFile,
     copyFileToCategory,
+    togglePinFile,
     setupTauriListeners,
     saveFiles,
     sortMethod,

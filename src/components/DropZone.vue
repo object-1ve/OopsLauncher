@@ -4,7 +4,14 @@
     <div class="drop-zone" :class="{ dragover: isDragOver }" @dragover="handleDragOver" @dragleave="handleDragLeave"
       @drop="handleDrop" @contextmenu.prevent="handleEmptyContextMenu">
       <!-- 图标展示区域 -->
-      <div class="icons-container" v-if="currentFiles.length > 0">
+      <div class="icons-container" v-if="pinnedCurrentFiles.length > 0 || currentFiles.length > 0">
+        <div v-if="pinnedCurrentFiles.length > 0" class="group-section pinned-section">
+          <div class="group-title">置顶</div>
+          <div class="row-container" :class="settings.appearance.itemLayout">
+            <FileIcon v-for="file in pinnedCurrentFiles" :key="file.id" :file="file" class="file-icon-item"
+              @open="handleFileOpen" @delete="handleFileDelete" @contextmenu="handleFileContextMenu" />
+          </div>
+        </div>
         <div v-if="classifyMethod === 'type'">
           <div v-for="group in groupedCurrentFiles" :key="group.type" class="group-section">
             <div class="group-title">{{ group.label }}</div>
@@ -37,6 +44,10 @@ const isTauri = () => !!window.__TAURI_INTERNALS__;
 
 // Props
 const props = defineProps({
+  pinnedCurrentFiles: {
+    type: Array,
+    default: () => [],
+  },
   currentFiles: {
     type: Array,
     default: () => [],
@@ -170,6 +181,10 @@ const handleEmptyContextMenu = (e) => {
   font-size: 12px;
   color: #909399;
   padding: 0 4px 6px;
+}
+
+.pinned-section .group-title {
+  color: #e6a23c;
 }
 
 /* 图标项样式覆盖 */
