@@ -21,6 +21,22 @@ const generateDisplayName = (fileName) => {
   return fileName || ''
 }
 
+// 统一文件路径比较键，避免同文件因大小写/斜杠差异被重复插入
+const normalizePathKey = (rawPath) => {
+  const path = String(rawPath || '').trim()
+  if (!path) return ''
+
+  const hasWindowsStyle = /^[a-zA-Z]:[\\/]/.test(path) || path.includes('\\')
+  const normalizedSlashes = path.replace(/\//g, '\\').replace(/\\+/g, '\\')
+  return hasWindowsStyle ? normalizedSlashes.toLowerCase() : normalizedSlashes
+}
+
+const categoryHasSameFile = (categoryFiles = [], filePath = '') => {
+  const targetKey = normalizePathKey(filePath)
+  if (!targetKey) return false
+  return categoryFiles.some(f => normalizePathKey(f.path) === targetKey)
+}
+
 // 特殊分类 ID
 export const SPECIAL_CATEGORIES = {
   ALL_FILES: 'all_files'
@@ -368,8 +384,16 @@ export function useFiles() {
     try {
       if (isTauri()) {
         const allFiles = []
+        const seenCategoryPath = new Set()
         for (const [categoryId, categoryFiles] of Object.entries(filesByCategory.value)) {
           for (const file of categoryFiles) {
+            const normalizedPath = normalizePathKey(file.path)
+            const dedupeKey = `${categoryId}::${normalizedPath}`
+            if (!normalizedPath || seenCategoryPath.has(dedupeKey)) {
+              continue
+            }
+            seenCategoryPath.add(dedupeKey)
+
             // 转换openCount为open_count, displayName为display_name
             // 显式指定所有 FileInfo 要求的字段，确保不丢失且不为 undefined/null (针对非 Option 字段)
             const fileToSave = {
@@ -514,6 +538,7 @@ export function useFiles() {
 
       if (loaded && loaded.length > 0) {
         console.log(`Processing ${loaded.length} loaded files...`)
+        const seenCategoryPath = new Set()
         for (const file of loaded) {
           const categoryId = file.category
           
@@ -531,6 +556,11 @@ export function useFiles() {
             created_at: created_at || Date.now(),
             notes: notes || ''
           }
+          const dedupeKey = `${targetId}::${normalizePathKey(fileWithFormattedFields.path)}`
+          if (seenCategoryPath.has(dedupeKey)) {
+            continue
+          }
+          seenCategoryPath.add(dedupeKey)
           organizedFiles[targetId].push(fileWithFormattedFields)
         }
       }
@@ -603,7 +633,7 @@ export function useFiles() {
         }
       }
       
-      if (!filesByCategory.value[currentCategory.value].some(f => f.path === fileInfo.path)) {
+      if (!categoryHasSameFile(filesByCategory.value[currentCategory.value], fileInfo.path)) {
         filesByCategory.value[currentCategory.value].push(fileInfo);
         addedCount++;
       } else {
@@ -644,7 +674,7 @@ export function useFiles() {
     // 确保目标分类存在
     if (!filesByCategory.value[targetCategoryId]) return { success: false }
     // 去重检查：目标分类是否已有相同 path 的文件
-    if (filesByCategory.value[targetCategoryId].some(f => f.path === file.path)) {
+    if (categoryHasSameFile(filesByCategory.value[targetCategoryId], file.path)) {
       return { success: false, reason: 'duplicate' }
     }
     // 深拷贝 + 新 ID + 新分类 + 重置 openCount 和 created_at
@@ -713,7 +743,7 @@ export function useFiles() {
           let existingCount = 0;
 
           for (const path of paths) {
-            if (!filesByCategory.value[currentCategory.value].some(f => f.path === path)) {
+            if (!categoryHasSameFile(filesByCategory.value[currentCategory.value], path)) {
               try {
                 const fileInfo = await invoke('get_file_info', { path })
                 fileInfo.id = generateId()
@@ -745,7 +775,7 @@ export function useFiles() {
           } else if (failedCount > 0) {
             ElMessage.error(`${failedCount} 个文件添加失败，请检查文件是否存在或权限是否足够`)
           } else if (existingCount > 0) {
-            ElMessage.warning(`所有文件都已存在`)
+            ElMessage.warning(`当前分类已存在此文件`)
           }
         }
       })
