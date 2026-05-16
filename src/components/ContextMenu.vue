@@ -26,11 +26,11 @@
         <li @click="handleDelete" class="context-menu-item">
           删除
         </li>
-        <li class="context-menu-divider"></li>
+        <li v-if="showLocateToCategory || targetCategories.length > 0" class="context-menu-divider"></li>
         <li v-if="showLocateToCategory" @click="handleLocateToCategory" class="context-menu-item">
           定位到对应分类
         </li>
-        <li class="context-menu-divider"></li>
+        <li v-if="showLocateToCategory && targetCategories.length > 0" class="context-menu-divider"></li>
         <!-- 复制到其他分类 -->
         <li v-if="targetCategories.length > 0" class="context-menu-item submenu-parent">
           <div class="menu-item-content">
@@ -49,7 +49,7 @@
           </ul>
         </li>
 
-        <li class="context-menu-divider"></li>
+        <li v-if="showLocateToCategory || targetCategories.length > 0" class="context-menu-divider"></li>
 
       </template>
       <li class="context-menu-item submenu-parent">

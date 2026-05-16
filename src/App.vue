@@ -10,6 +10,7 @@
 
 <script setup>
 import { onMounted, onUnmounted, watch } from "vue";
+import { useRoute } from "vue-router";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -27,8 +28,39 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 
 const { settings } = useSettings();
-const { saveFiles } = useFiles();
+const { saveFiles, showSearchOverlay } = useFiles();
+const route = useRoute();
 const appWindow = getCurrentWebviewWindow();
+
+const isEditableElement = (target) => {
+  const el = target instanceof HTMLElement ? target : null;
+  if (!el) return false;
+  const tagName = el.tagName;
+  return (
+    el.isContentEditable ||
+    tagName === "INPUT" ||
+    tagName === "TEXTAREA" ||
+    tagName === "SELECT"
+  );
+};
+
+const handleGlobalTabOpenSearch = (event) => {
+  if (
+    event.key !== "Tab" ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    event.shiftKey
+  ) {
+    return;
+  }
+  if (appWindow.label !== "main") return;
+  if (route.name === "Settings") return;
+  if (showSearchOverlay.value) return;
+  if (isEditableElement(event.target)) return;
+  event.preventDefault();
+  showSearchOverlay.value = true;
+};
 
 // 发送原生系统通知
 const sendNativeNotification = async (title, body) => {
@@ -225,6 +257,7 @@ watch(
 );
 
 onMounted(async () => {
+  window.addEventListener("keydown", handleGlobalTabOpenSearch);
   try {
     // 检查是否是开机自启动（静默模式）
     const isMinimized = await invoke("check_is_minimized");
@@ -295,6 +328,7 @@ onMounted(async () => {
 });
 
 onUnmounted(async () => {
+  window.removeEventListener("keydown", handleGlobalTabOpenSearch);
   const { showHide, copyTime, testNotification } = settings.value.shortcuts;
   if (showHide) await unregister(showHide).catch(() => {});
   if (copyTime) await unregister(copyTime).catch(() => {});
