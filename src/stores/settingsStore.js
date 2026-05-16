@@ -3,7 +3,7 @@ import { ref, watch, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
-const isTauri = () => !!window.__TAURI_INTERNALS__
+import { isTauri } from '@/utils/env'
 
 const defaultSettings = {
   general: {

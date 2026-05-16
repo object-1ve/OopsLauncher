@@ -2,13 +2,12 @@ pub mod models;
 pub mod db;
 pub mod utils;
 pub mod icon;
+pub mod error;
+pub mod tray;
+pub mod services;
 pub mod commands;
 
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
-};
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,7 +21,6 @@ pub fn run() {
             Some(vec!["--minimized"]),
         ))
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // 当检测到新实例启动时，显示主窗口并聚焦
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
@@ -46,13 +44,13 @@ pub fn run() {
             commands::app::check_is_minimized,
             commands::app::remove_window_animation,
             commands::app::exit_app,
+            commands::app::disable_settings_system_menu,
             commands::settings::save_launcher_state_to_db,
             commands::settings::load_launcher_state_from_db,
             commands::settings::save_settings_to_json,
             commands::settings::load_settings_from_json,
         ])
         .setup(|app| {
-            // 初始化数据库
             db::init_database(app.handle())?;
 
             if cfg!(debug_assertions) {
@@ -63,52 +61,7 @@ pub fn run() {
                 )?;
             }
 
-            // 创建托盘菜单
-            let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
-            let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
-
-            let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "quit" => {
-                        // 发送退出事件给前端，让前端有机会保存数据
-                        let _ = app.emit("request-exit", ());
-                        // 这里不再直接调用 exit，由前端保存完成后调用 exit_app
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let is_visible = window.is_visible().unwrap_or(false);
-                            let is_minimized = window.is_minimized().unwrap_or(false);
-
-                            if is_visible && !is_minimized {
-                                let _ = window.hide();
-                            } else {
-                                let _ = window.unminimize();
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
-                        }
-                    }
-                })
-                .build(app)?;
+            tray::build_tray(app)?;
 
             Ok(())
         })

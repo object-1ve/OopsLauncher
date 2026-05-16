@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use tauri::{AppHandle, Manager, Window};
 
 #[tauri::command]
@@ -6,11 +7,13 @@ pub fn get_app_version(app: AppHandle) -> String {
 }
 
 #[tauri::command]
-pub fn set_skip_taskbar(app: AppHandle, skip: bool) -> Result<(), String> {
+pub fn set_skip_taskbar(app: AppHandle, skip: bool) -> Result<(), AppError> {
     let window = app
         .get_webview_window("main")
-        .ok_or_else(|| "Main window not found".to_string())?;
-    window.set_skip_taskbar(skip).map_err(|e| e.to_string())
+        .ok_or_else(|| AppError::Window("Main window not found".into()))?;
+    window
+        .set_skip_taskbar(skip)
+        .map_err(|e| AppError::Window(e.to_string()))
 }
 
 #[tauri::command]
@@ -19,15 +22,15 @@ pub fn check_is_minimized() -> bool {
 }
 
 #[tauri::command]
-pub fn remove_window_animation(window: Window) -> Result<(), String> {
+pub fn remove_window_animation(window: Window) -> Result<(), AppError> {
     #[cfg(target_os = "windows")]
     {
         use windows::Win32::Foundation::HWND;
-        use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
-        
-        // 在 Tauri v2 中，window.hwnd() 返回的是 Result<HWND, Error>
-        // 这里的 HWND 是 tauri 包装的类型，可以通过 .0 获取内部的 isize
-        let hwnd_value = window.hwnd().map_err(|e| e.to_string())?;
+        use windows::Win32::Graphics::Dwm::{
+            DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED,
+        };
+
+        let hwnd_value = window.hwnd().map_err(|e| AppError::Window(e.to_string()))?;
         let hwnd = HWND(hwnd_value.0 as _);
         let value = 1i32;
         unsafe {
@@ -45,4 +48,26 @@ pub fn remove_window_animation(window: Window) -> Result<(), String> {
 #[tauri::command]
 pub fn exit_app(app: AppHandle) {
     app.exit(0);
+}
+
+#[tauri::command]
+pub fn disable_settings_system_menu(window: Window) -> Result<(), AppError> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetWindowLongPtrW, SetWindowLongPtrW, GWL_STYLE, WS_SYSMENU,
+        };
+
+        let hwnd_value = window.hwnd().map_err(|e| AppError::Window(e.to_string()))?;
+        let hwnd = windows::Win32::Foundation::HWND(hwnd_value.0 as _);
+
+        unsafe {
+            let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+            if style != 0 {
+                let new_style = style & !(WS_SYSMENU.0 as isize);
+                SetWindowLongPtrW(hwnd, GWL_STYLE, new_style);
+            }
+        }
+    }
+    Ok(())
 }

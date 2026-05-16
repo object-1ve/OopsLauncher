@@ -90,115 +90,49 @@ const sendNativeNotification = async (title, body) => {
   }
 };
 
-const registerShowHideShortcut = async (showSuccess = false) => {
+const registerAppShortcut = async (key, handler, { showSuccess = false, name = '' } = {}) => {
   if (appWindow.label !== "main") return;
-  const shortcut = settings.value.shortcuts.showHide;
+  const shortcut = settings.value.shortcuts[key];
   if (!shortcut) return;
 
   try {
-    try {
-      await unregister(shortcut);
-    } catch (e) {}
+    try { await unregister(shortcut); } catch (e) {}
     await register(shortcut, async (event) => {
-      if (event && event.state === "Released") return;
-      const isVisible = await appWindow.isVisible();
-      if (isVisible) {
-        await appWindow.hide();
-      } else {
-        await appWindow.show();
-        await appWindow.setFocus();
-      }
+      if (event?.state === "Released") return;
+      await handler();
     });
     if (showSuccess) {
-      ElMessage.success(`显示/隐藏快捷键已更新为: ${shortcut}`);
+      ElMessage.success(`${name}快捷键已更新为: ${shortcut}`);
     }
   } catch (err) {
-    console.error("Failed to register show/hide shortcut:", err);
+    console.error(`Failed to register ${key} shortcut:`, err);
     if (err.includes("already registered")) {
-      sendNativeNotification(
-        "快捷键冲突",
-        `显示/隐藏快捷键 ${shortcut} 已被其他程序占用。`
-      );
+      sendNativeNotification("快捷键冲突", `${name}快捷键 ${shortcut} 已被其他程序占用。`);
     }
   }
 };
 
-const registerCopyTimeShortcut = async (showSuccess = false) => {
-  if (appWindow.label !== "main") return;
-  const shortcut = settings.value.shortcuts.copyTime;
-  if (!shortcut) return;
+const registerShowHideShortcut = (showSuccess = false) =>
+  registerAppShortcut('showHide', async () => {
+    const isVisible = await appWindow.isVisible();
+    if (isVisible) { await appWindow.hide(); }
+    else { await appWindow.show(); await appWindow.setFocus(); }
+  }, { showSuccess, name: '显示/隐藏' });
 
-  try {
-    try {
-      await unregister(shortcut);
-    } catch (e) {}
-    await register(shortcut, async (event) => {
-      console.log("Copy time shortcut triggered:", event);
-      if (event && event.state === "Released") return;
+const registerCopyTimeShortcut = (showSuccess = false) =>
+  registerAppShortcut('copyTime', async () => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    await writeText(timeStr);
+    await sendNativeNotification('时间已复制', timeStr);
+  }, { showSuccess, name: '复制时间' });
 
-      try {
-        const now = new Date();
-        const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-          2,
-          "0"
-        )}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(
-          2,
-          "0"
-        )}-${String(now.getMinutes()).padStart(2, "0")}-${String(
-          now.getSeconds()
-        ).padStart(2, "0")}`;
-
-        await writeText(timeStr);
-        await sendNativeNotification("时间已复制", timeStr);
-        console.log("Time copied to clipboard:", timeStr);
-      } catch (err) {
-        console.error("Failed to copy time inside shortcut:", err);
-      }
-    });
-    if (showSuccess) {
-      ElMessage.success(`复制时间快捷键已更新为: ${shortcut}`);
-    }
-  } catch (err) {
-    console.error("Failed to register copy time shortcut:", err);
-    if (err.includes("already registered")) {
-      sendNativeNotification(
-        "快捷键冲突",
-        `复制时间快捷键 ${shortcut} 已被其他程序占用。`
-      );
-    }
-  }
-};
-
-const registerTestNotificationShortcut = async (showSuccess = false) => {
-  if (appWindow.label !== "main") return;
-  const shortcut = settings.value.shortcuts.testNotification;
-  if (!shortcut) return;
-
-  try {
-    try {
-      await unregister(shortcut);
-    } catch (e) {}
-    await register(shortcut, async (event) => {
-      if (event && event.state === "Released") return;
-      const now = new Date();
-      await sendNativeNotification(
-        "OopsLauncher 通知测试",
-        `触发时间：${now.toLocaleString()}`
-      );
-    });
-    if (showSuccess) {
-      ElMessage.success(`测试通知快捷键已更新为: ${shortcut}`);
-    }
-  } catch (err) {
-    console.error("Failed to register test notification shortcut:", err);
-    if (err.includes("already registered")) {
-      sendNativeNotification(
-        "快捷键冲突",
-        `测试通知快捷键 ${shortcut} 已被其他程序占用!。`
-      );
-    }
-  }
-};
+const registerTestNotificationShortcut = (showSuccess = false) =>
+  registerAppShortcut('testNotification', async () => {
+    const now = new Date();
+    await sendNativeNotification('OopsLauncher 通知测试', `触发时间：${now.toLocaleString()}`);
+  }, { showSuccess, name: '测试通知' });
 
 const registerAllShortcuts = async () => {
   await registerShowHideShortcut();

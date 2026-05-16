@@ -63,6 +63,7 @@ import { useContextMenu } from '@/composables/useContextMenu'
 import { invoke } from '@tauri-apps/api/core'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { ElMessage } from 'element-plus'
+import { isTauri } from '@/utils/env'
 
 const { 
   currentCategory,
@@ -171,11 +172,8 @@ const handleContextMenuDelete = (fileId) => {
 const handleOpenLocation = async (file) => {
   try {
     if (file && file.path) {
-      // 检测是否在 Tauri 环境
-      const isTauri = !!window.__TAURI_INTERNALS__;
-      
       // 打开文件所在位置并选择文件
-      if (isTauri) {
+      if (isTauri()) {
         await invoke('open_file_location', { path: file.path })
       } else {
         // 浏览器环境下的降级处理
@@ -192,9 +190,7 @@ const handleOpenLocation = async (file) => {
 const handleOpenTerminal = async (file) => {
   try {
     if (file && file.path) {
-      const isTauri = !!window.__TAURI_INTERNALS__;
-
-      if (isTauri) {
+      if (isTauri()) {
         await invoke('open_terminal', { path: file.path })
       } else {
         alert(`在浏览器环境中无法打开终端: ${file.path}`)
@@ -222,9 +218,7 @@ const handleCopyPath = async (file) => {
 const handleOpenWith = async (file) => {
   try {
     if (file && file.path) {
-      const isTauri = !!window.__TAURI_INTERNALS__
-
-      if (isTauri) {
+      if (isTauri()) {
         await invoke('open_with_dialog', { path: file.path })
       } else {
         alert(`当前环境不支持打开方式: ${file.path}`)

@@ -106,6 +106,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-notification",
  "tauri-plugin-single-instance",
+ "thiserror 2.0.18",
  "windows 0.52.0",
 ]
 

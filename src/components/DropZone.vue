@@ -39,8 +39,7 @@ import { useSettings } from "@/composables/useSettings";
 
 const { settings } = useSettings();
 
-// 检测是否在 Tauri 环境中运行
-const isTauri = () => !!window.__TAURI_INTERNALS__;
+import { isTauri } from "@/utils/env";
 
 // Props
 const props = defineProps({

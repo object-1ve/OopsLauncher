@@ -6,15 +6,94 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: #333;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  margin: 0; /* 明确去除 body 的 margin */
+  margin: 0;
 }
 
 #app {
   height: 100%;
   width: 100%;
+}
+
+/* ── Settings UI Design Tokens ── */
+:root {
+  --settings-bg: #f4f5f9;
+  --settings-sidebar-bg: #ffffff;
+  --settings-card-bg: #ffffff;
+  --settings-card-border: rgba(0, 0, 0, 0.04);
+  --settings-text-primary: #1a1a2e;
+  --settings-text-secondary: #6b7280;
+  --settings-text-muted: #9ca3af;
+  --settings-border: #e5e7eb;
+  --settings-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --settings-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --settings-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --settings-radius-sm: 8px;
+  --settings-radius-md: 12px;
+  --settings-radius-lg: 16px;
+  --settings-transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Element Plus Overrides for Settings ── */
+.settings-view .el-form-item__label {
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  color: var(--settings-text-primary) !important;
+  padding-bottom: 10px !important;
+  letter-spacing: 0.02em;
+}
+
+.settings-view .el-checkbox__label,
+.settings-view .el-radio__label {
+  font-size: 14px;
+}
+
+.settings-view .el-slider__runway {
+  height: 6px;
+}
+
+.settings-view .el-slider__bar {
+  height: 6px;
+}
+
+.settings-view .el-slider__button {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.settings-view .el-slider__button:hover {
+  transform: scale(1.15);
+}
+
+.settings-view .el-select .el-input__wrapper {
+  border-radius: 8px;
+}
+
+.settings-view .el-color-picker__trigger {
+  border-radius: 8px;
+  border: 1px solid var(--settings-border);
+}
+
+.settings-view .el-collapse {
+  border: none;
+}
+
+.settings-view .el-collapse-item__header {
+  font-weight: 600;
+  font-size: 13px;
+  padding-left: 4px;
+}
+
+.settings-view .el-collapse-item__content {
+  padding-bottom: 8px;
+}
+
+.settings-view .el-switch {
+  --el-switch-on-color: var(--el-color-primary);
 }

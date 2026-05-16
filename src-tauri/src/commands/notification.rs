@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use serde::Deserialize;
 use tauri::AppHandle;
 use tauri_plugin_notification::NotificationExt;
@@ -10,11 +11,11 @@ pub struct NotificationParams {
 }
 
 #[tauri::command]
-pub fn send_notification_custom(app: AppHandle, params: NotificationParams) -> Result<(), String> {
-    let mut builder = app.notification()
-        .builder()
-        .title(&params.title)
-        .body(&params.body);
+pub fn send_notification_custom(
+    app: AppHandle,
+    params: NotificationParams,
+) -> Result<(), AppError> {
+    let mut builder = app.notification().builder().title(&params.title).body(&params.body);
 
     if let Some(icon) = params.icon {
         if !icon.is_empty() {
@@ -22,7 +23,7 @@ pub fn send_notification_custom(app: AppHandle, params: NotificationParams) -> R
         }
     }
 
-    builder.show().map_err(|e| e.to_string())?;
-    
+    builder.show().map_err(|e| AppError::Plugin(e.to_string()))?;
+
     Ok(())
 }
