@@ -27,7 +27,7 @@ import {
 } from "@tauri-apps/plugin-notification";
 import { invoke } from "@tauri-apps/api/core";
 
-const { settings } = useSettings();
+const { settings, isInitializing } = useSettings();
 const { saveFiles, showSearchOverlay } = useFiles();
 const route = useRoute();
 const appWindow = getCurrentWebviewWindow();
@@ -101,12 +101,17 @@ const registerAppShortcut = async (key, handler, { showSuccess = false, name = '
       if (event?.state === "Released") return;
       await handler();
     });
-    if (showSuccess) {
+    // 初始化阶段（watch 首次触发时 loadSettings 尚未完成）不显示成功提示
+    if (showSuccess && !isInitializing.value) {
       ElMessage.success(`${name}快捷键已更新为: ${shortcut}`);
     }
   } catch (err) {
     console.error(`Failed to register ${key} shortcut:`, err);
-    if (err.includes("already registered")) {
+    // 更精确的冲突判断
+    const isAlreadyRegistered = err?.message?.includes?.("already registered")
+      || String(err).includes("already registered")
+      || err?.code === 0xE;
+    if (isAlreadyRegistered) {
       sendNativeNotification("快捷键冲突", `${name}快捷键 ${shortcut} 已被其他程序占用。`);
     }
   }
@@ -201,11 +206,8 @@ onMounted(async () => {
       await invoke("remove_window_animation").catch((e) =>
         console.error("Failed to remove animation:", e)
       );
-    }
 
-    // 只在主窗口注册快捷键，避免多窗口重复注册冲突
-    if (appWindow.label === "main") {
-      await registerAllShortcuts();
+      // 快捷键注册由 watch(() => settings.value.shortcuts.xxx) 统一处理，onMounted 不再重复注册
 
       // 初始化任务栏显示状态
       await invoke("set_skip_taskbar", {

@@ -115,7 +115,7 @@ const openFile = async (file) => {
     }
   } catch (error) {
     console.error('Failed to open file:', error)
-    alert(`打开文件失败: ${error.message}`)
+    ElMessage.error(`打开文件失败: ${error.message || error}`)
   }
 }
 

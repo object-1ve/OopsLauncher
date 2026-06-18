@@ -209,6 +209,19 @@ pub fn open_path(path: String) -> Result<(), AppError> {
 
     #[cfg(target_os = "windows")]
     {
+        let p = Path::new(&path);
+        // 如果是可执行文件，设置工作目录为其所在文件夹并直接启动
+        if p.is_file() && p.extension().map_or(false, |ext| ext.to_string_lossy().to_lowercase() == "exe") {
+            if let Some(parent) = p.parent() {
+                Command::new(&path)
+                    .current_dir(parent)
+                    .spawn()
+                    .map_err(|e| AppError::Platform(format!("Failed to launch exe: {}", e)))?;
+                return Ok(());
+            }
+        }
+
+        // 其他情况（文件夹、文档等）使用 explorer.exe 打开
         Command::new("explorer.exe")
             .arg(&path)
             .spawn()

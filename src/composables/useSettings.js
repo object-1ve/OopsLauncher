@@ -6,6 +6,7 @@ export function useSettings() {
   const { settings } = storeToRefs(settingsStore)
   return {
     settings,
-    loadSettings: settingsStore.loadSettings
+    loadSettings: settingsStore.loadSettings,
+    isInitializing: settingsStore.isInitializing
   }
 }

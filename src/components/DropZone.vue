@@ -27,7 +27,7 @@
         </div>
       </div>
       <!-- 隐藏的文件输入 -->
-      <input ref="fileInput" type="file" multiple class="file-input" @change="handleFileSelect" />
+      <input ref="fileInput" type="file" multiple class="file-input" tabindex="-1" @change="handleFileSelect" />
     </div>
   </el-main>
 </template>

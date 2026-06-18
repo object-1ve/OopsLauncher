@@ -23,6 +23,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.claude/
+.codegraph/
+.cursor/
+CLAUDE.md
+AGENTS.md
 
 # Tauri
 src-tauri/target/

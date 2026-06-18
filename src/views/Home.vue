@@ -1,54 +1,25 @@
 <template>
   <div class="home-view">
     <!-- 使用DropZone组件 -->
-    <DropZone 
-      :pinnedCurrentFiles="pinnedCurrentFiles"
-      :currentFiles="currentFiles"
-      :groupedCurrentFiles="groupedCurrentFiles"
-      :classifyMethod="classifyMethod"
-      @fileAdd="handleFileAdd"
-      @fileOpen="openFile"
-      @fileDelete="deleteFile"
-      @contextmenu="handleContextMenu"
-    />
+    <DropZone :pinnedCurrentFiles="pinnedCurrentFiles" :currentFiles="currentFiles"
+      :groupedCurrentFiles="groupedCurrentFiles" :classifyMethod="classifyMethod" @fileAdd="handleFileAdd"
+      @fileOpen="openFile" @fileDelete="deleteFile" @contextmenu="handleContextMenu" />
 
     <!-- 使用ContextMenu组件 -->
-    <ContextMenu 
-      :visible="contextMenu.visible"
-      :x="contextMenu.x"
-      :y="contextMenu.y"
-      :selectedFileId="contextMenu.selectedFileId"
-      :selectedFile="contextMenu.selectedFile"
-      :sortMethod="sortMethod"
-      :sortOrder="sortOrder"
-      :classifyMethod="classifyMethod"
-      :showFileName="settings.appearance.showFileName"
+    <ContextMenu :visible="contextMenu.visible" :x="contextMenu.x" :y="contextMenu.y"
+      :selectedFileId="contextMenu.selectedFileId" :selectedFile="contextMenu.selectedFile" :sortMethod="sortMethod"
+      :sortOrder="sortOrder" :classifyMethod="classifyMethod" :showFileName="settings.appearance.showFileName"
       :categories="allCategories"
       :showLocateToCategory="currentCategory === SPECIAL_CATEGORIES.ALL_FILES && !!contextMenu.selectedFile?.category"
-      :showPinToggle="!!contextMenu.selectedFile?.category"
-      :selectedFileIsPinned="!!contextMenu.selectedFile?.isPinned"
-      @delete="handleContextMenuDelete"
-      @hide="hideContextMenu"
-      @openLocation="handleOpenLocation"
-      @openTerminal="handleOpenTerminal"
-      @copyPath="handleCopyPath"
-      @openWith="handleOpenWith"
-      @editInfo="handleEditInfo"
-      @sort="handleSort"
-      @classify="handleClassify"
-      @toggleDisplay="handleToggleDisplay"
-      @copyToCategory="handleCopyToCategory"
-      @locateToCategory="handleLocateToCategory"
-      @togglePin="handleTogglePin"
-    />
-    
+      :showPinToggle="!!contextMenu.selectedFile?.category" :selectedFileIsPinned="!!contextMenu.selectedFile?.isPinned"
+      @delete="handleContextMenuDelete" @hide="hideContextMenu" @openLocation="handleOpenLocation"
+      @openTerminal="handleOpenTerminal" @copyPath="handleCopyPath" @openWith="handleOpenWith"
+      @editInfo="handleEditInfo" @sort="handleSort" @classify="handleClassify" @toggleDisplay="handleToggleDisplay"
+      @copyToCategory="handleCopyToCategory" @locateToCategory="handleLocateToCategory" @togglePin="handleTogglePin" />
+
     <!-- 文件信息编辑弹窗 -->
-    <FileInfoDialog
-      v-model:visible="fileInfoDialog.visible"
-      :current-file="fileInfoDialog.currentFile"
-      @save="handleSaveFileInfo"
-      @cancel="handleCancelFileInfo"
-    />
+    <FileInfoDialog v-model:visible="fileInfoDialog.visible" :current-file="fileInfoDialog.currentFile"
+      @save="handleSaveFileInfo" @cancel="handleCancelFileInfo" />
   </div>
 </template>
 
@@ -65,14 +36,14 @@ import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { ElMessage } from 'element-plus'
 import { isTauri } from '@/utils/env'
 
-const { 
+const {
   currentCategory,
   pinnedCurrentFiles,
-  currentFiles, 
+  currentFiles,
   groupedCurrentFiles,
   filesByCategory,
-  processFiles, 
-  deleteFile, 
+  processFiles,
+  deleteFile,
   openFile,
   loadFiles,
   setupTauriListeners,
@@ -106,7 +77,7 @@ const fileInfoDialog = ref({
 // 方法：处理文件添加
 const handleFileAdd = async (fileList) => {
   const result = await processFiles(fileList)
-  
+
   if (result.error === 'cannot_add_to_special_category') {
     ElMessage.warning('不能直接向“全部文件”分类中添加文件')
     return
@@ -146,7 +117,7 @@ const handleContextMenu = (data) => {
       }
     }
   }
-  
+
   registerMenu(hideContextMenu)
   contextMenu.value = {
     visible: true,
@@ -178,12 +149,12 @@ const handleOpenLocation = async (file) => {
       } else {
         // 浏览器环境下的降级处理
         console.log('Opening file location:', file.path)
-        alert(`在浏览器环境中无法打开文件位置: ${file.path}`)
+        ElMessage.warning(`在浏览器环境中无法打开文件位置: ${file.path}`)
       }
     }
   } catch (error) {
     console.error('Failed to open file location:', error)
-    alert(`打开文件所在位置失败: ${error.message}`)
+    ElMessage.error(`打开文件所在位置失败: ${error.message || error}`)
   }
 }
 
@@ -193,12 +164,12 @@ const handleOpenTerminal = async (file) => {
       if (isTauri()) {
         await invoke('open_terminal', { path: file.path })
       } else {
-        alert(`在浏览器环境中无法打开终端: ${file.path}`)
+        ElMessage.warning(`在浏览器环境中无法打开终端: ${file.path}`)
       }
     }
   } catch (error) {
     console.error('Failed to open terminal:', error)
-    alert(`在终端打开失败: ${error.message}`)
+    ElMessage.error(`在终端打开失败: ${error.message || error}`)
   }
 }
 
@@ -221,12 +192,12 @@ const handleOpenWith = async (file) => {
       if (isTauri()) {
         await invoke('open_with_dialog', { path: file.path })
       } else {
-        alert(`当前环境不支持打开方式: ${file.path}`)
+        ElMessage.warning(`当前环境不支持打开方式: ${file.path}`)
       }
     }
   } catch (error) {
     console.error('Failed to open with dialog:', error)
-    alert(`打开方式失败: ${error.message}`)
+    ElMessage.error(`打开方式失败: ${error.message || error}`)
   }
 }
 
@@ -252,10 +223,10 @@ const handleSaveFileInfo = async (updatedFile) => {
         }
       }
     }
-    
+
     // 保存更改到数据库
     await saveFiles()
-    
+
     // 显示保存成功的消息
     ElMessage.success('文件信息保存成功')
   } catch (error) {
@@ -383,9 +354,20 @@ onUnmounted(() => {
 })
 </script>
 
+
 <style scoped>
 .home-view {
   height: 100vh;
   width: 100%;
+  outline: none;
+}
+
+.home-view:focus,
+.home-view:focus-visible {
+  outline: none;
+}
+
+.home-view :focus-visible {
+  outline: none;
 }
 </style>

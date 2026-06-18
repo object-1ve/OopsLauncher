@@ -78,6 +78,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const settings = ref({ ...defaultSettings })
   const isLoading = ref(false)
   const isExternallyUpdating = ref(false)
+  const isInitializing = ref(true) // 标记是否处于初始加载阶段，用于阻止 watch 显示成功提示
 
   let saveTimeout = null
   const saveSettings = (newSettings) => {
@@ -100,6 +101,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const loadSettings = async () => {
     isLoading.value = true
+    isInitializing.value = true
     try {
       let storedSettings = null
       if (isTauri()) {
@@ -118,6 +120,7 @@ export const useSettingsStore = defineStore('settings', () => {
       // 延迟一点点结束加载状态，确保 watch 不会被立即触发的异步保存动作影响
       setTimeout(() => {
         isLoading.value = false
+        isInitializing.value = false
       }, 100)
     }
   }
@@ -159,6 +162,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     settings,
-    loadSettings
+    loadSettings,
+    isInitializing
   }
 })
