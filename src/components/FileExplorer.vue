@@ -154,6 +154,9 @@
           <li class="context-menu-item" @click="handleOpen(explorerMenu.file)">
             打开
           </li>
+          <li class="context-menu-item" @click="handleOpenFileLocation(explorerMenu.file)">
+            打开文件所在位置
+          </li>
           <li class="context-menu-divider"></li>
           <li class="context-menu-item" @click="handleCopy(explorerMenu.file)">
             复制
@@ -207,7 +210,7 @@ import { ArrowLeft, HomeFilled, Loading, CaretTop, CaretBottom } from '@element-
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useFiles } from '@/composables/useFiles';
-import { startFolderSizeTask, getFileIcon } from '@/api/file';
+import { startFolderSizeTask, getFileIcon, openFileLocation } from '@/api/file';
 import { ElMessage } from 'element-plus';
 
 const { explorerPath } = useFiles();
@@ -594,6 +597,17 @@ const handleOpen = (file) => {
     });
   }
   hideContextMenu();
+};
+
+const handleOpenFileLocation = async (file) => {
+  try {
+    await openFileLocation(file.path);
+  } catch (error) {
+    console.error('Failed to open file location:', error);
+    ElMessage.error(`打开文件所在位置失败: ${error}`);
+  } finally {
+    hideContextMenu();
+  }
 };
 
 const handleCopy = (file) => {

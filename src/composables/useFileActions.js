@@ -39,9 +39,11 @@ const processFiles = async (fileList) => {
           fileInfo.icon = await getFileIcon({ name: fileInfo.name });
         }
         fileInfo.category = currentCategory.value;
-        fileInfo.displayName = fileInfo.display_name || generateDisplayName(fileInfo.name);
+        fileInfo.displayName = fileInfo.displayName || generateDisplayName(fileInfo.name);
         fileInfo.notes = fileInfo.notes || '';
-        fileInfo.isPinned = !!fileInfo.is_pinned;
+        fileInfo.isPinned = !!fileInfo.isPinned;
+        fileInfo.createdAt = fileInfo.createdAt || Date.now();
+        fileInfo.created_at = fileInfo.createdAt;
       } catch (error) {
         console.error(`Failed to get file info for ${file.name}:`, error);
         isError = true;
@@ -55,12 +57,13 @@ const processFiles = async (fileList) => {
       fileInfo = {
         id: generateId(),
         name: file.name,
-        display_name: generateDisplayName(file.name),
+        displayName: generateDisplayName(file.name),
         path: file.path || file.webkitRelativePath || file.name,
         size: file.size,
         type: file.type,
         icon: await getFileIcon(file),
         category: currentCategory.value,
+        createdAt: Date.now(),
         created_at: Date.now(),
         notes: '',
         isPinned: false
@@ -134,6 +137,7 @@ const copyFileToCategory = async (file, targetCategoryId) => {
     id: newId,
     category: targetCategoryId,
     openCount: 0,
+    createdAt: Date.now(),
     created_at: Date.now(),
     isPinned: false
   }
@@ -224,10 +228,11 @@ const setupTauriListeners = async () => {
                 fileInfo.icon = await getFileIcon({ name: fileInfo.name })
               }
               fileInfo.category = currentCategory.value
-              fileInfo.displayName = fileInfo.display_name || generateDisplayName(fileInfo.name)
-              fileInfo.created_at = fileInfo.created_at || Date.now()
+              fileInfo.displayName = fileInfo.displayName || generateDisplayName(fileInfo.name)
+              fileInfo.createdAt = fileInfo.createdAt || Date.now()
+              fileInfo.created_at = fileInfo.createdAt
               fileInfo.notes = fileInfo.notes || ''
-              fileInfo.isPinned = !!fileInfo.is_pinned
+              fileInfo.isPinned = !!fileInfo.isPinned
               filesByCategory.value[currentCategory.value].push(fileInfo)
               addedCount++;
             } catch (error) {

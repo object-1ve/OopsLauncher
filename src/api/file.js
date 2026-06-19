@@ -15,3 +15,7 @@ export async function startFolderSizeTask(paths) {
 export async function getFileIcon(path) {
   return invoke('get_file_icon', { path });
 }
+
+export async function openFileLocation(path) {
+  return invoke('open_file_location', { path });
+}

@@ -93,20 +93,23 @@ const saveFiles = async () => {
           }
           seenCategoryPath.add(dedupeKey)
 
+          const createdAt = Number(file.createdAt ?? file.created_at ?? Date.now())
+          const modifiedAt = Number(file.modifiedAt ?? file.modified_at ?? createdAt)
           const fileToSave = {
             id: String(file.id || generateId()),
             name: String(file.name || ''),
-            display_name: String(file.displayName || file.display_name || generateDisplayName(file.name) || ''),
+            displayName: String(file.displayName || file.display_name || generateDisplayName(file.name) || ''),
             path: String(file.path || ''),
             size: Number(file.size) || 0,
             type: String(file.type || ''),
             icon: String(file.icon || ''),
             content: file.content || null,
             category: String(categoryId || 'main'),
-            open_count: Number(file.openCount || file.open_count || 0),
-            created_at: Number(file.created_at || Date.now()),
+            openCount: Number(file.openCount ?? file.open_count ?? 0),
+            createdAt,
+            modifiedAt,
             notes: file.notes || null,
-            is_pinned: !!file.isPinned
+            isPinned: !!(file.isPinned ?? file.is_pinned)
           }
           allFiles.push(fileToSave)
         }
@@ -118,7 +121,9 @@ const saveFiles = async () => {
     }
   } catch (error) {
     console.error('Failed to save files:', error)
-    localStorage.setItem('oopslauncher_files', JSON.stringify(filesByCategory.value))
+    if (!isTauri()) {
+      localStorage.setItem('oopslauncher_files', JSON.stringify(filesByCategory.value))
+    }
   } finally {
     isSaving = false;
     if (savePending) {
@@ -205,18 +210,6 @@ const loadFiles = async () => {
 
     const loaded = await invoke('load_files_from_db')
 
-    if (!loaded || loaded.length === 0) {
-      const saved = localStorage.getItem('oopslauncher_files')
-      if (saved) {
-        console.warn('Database is empty, falling back to localStorage');
-        filesByCategory.value = JSON.parse(saved)
-        setHasLoaded(true)
-        await saveFiles()
-        return
-      }
-      setHasLoaded(true)
-    }
-
     const organizedFiles = {}
 
     customCategories.value.forEach(cat => {
@@ -233,15 +226,18 @@ const loadFiles = async () => {
 
         const targetId = organizedFiles[categoryId] ? categoryId : customCategories.value[0].id
 
-        const { open_count, display_name, created_at, notes, is_pinned, ...otherFields } = file
+        const { openCount, displayName, createdAt, modifiedAt, notes, isPinned, ...otherFields } = file
         const fileWithFormattedFields = {
           ...otherFields,
-          openCount: open_count || 0,
-          displayName: display_name || generateDisplayName(file.name),
+          openCount: openCount || 0,
+          displayName: displayName || generateDisplayName(file.name),
           category: targetId,
-          created_at: created_at || Date.now(),
+          createdAt: createdAt || Date.now(),
+          created_at: createdAt || Date.now(),
+          modifiedAt: modifiedAt || createdAt || Date.now(),
+          modified_at: modifiedAt || createdAt || Date.now(),
           notes: notes || '',
-          isPinned: !!is_pinned
+          isPinned: !!isPinned
         }
         const dedupeKey = `${targetId}::${normalizePathKey(fileWithFormattedFields.path)}`
         if (seenCategoryPath.has(dedupeKey)) {
@@ -270,6 +266,11 @@ const loadFiles = async () => {
     }
   } catch (error) {
     console.error('Failed to load files from DB:', error)
+    if (isTauri()) {
+      filesByCategory.value = {}
+      setHasLoaded(true)
+      return
+    }
     const saved = localStorage.getItem('oopslauncher_files')
     if (saved) {
       filesByCategory.value = JSON.parse(saved)
