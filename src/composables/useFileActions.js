@@ -2,10 +2,11 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { ElMessage } from 'element-plus'
 import { isTauri } from '@/utils/env'
+import { calculateDirSizes, calculateDirSize } from '@/api/file'
 import {
   currentCategory, filesByCategory, customCategories,
   categoryHasSameFile, generateDisplayName, generateId, getFileIcon,
-  SPECIAL_CATEGORIES,
+  SPECIAL_CATEGORIES, getCurrentCategoryFiles,
   tauriListenersSet, setTauriListenersSet
 } from './useFileState'
 import { saveFiles } from './useFilePersistence'
@@ -151,6 +152,42 @@ const togglePinFile = async (file) => {
   categoryFiles[index] = updatedFile
   await saveFiles()
   return { success: true, isPinned: !!updatedFile.isPinned }
+}
+
+const calculateFolderSizes = async (files, updateCallback) => {
+  if (!isTauri() || !files || files.length === 0) return;
+
+  const folderPaths = files
+    .filter(f => f.type === 'directory')
+    .map(f => f.path);
+
+  if (folderPaths.length === 0) return;
+
+  try {
+    const sizes = await calculateDirSizes(folderPaths);
+    folderPaths.forEach(path => {
+      const file = files.find(f => f.path === path);
+      if (file && sizes[path] !== undefined) {
+        file.size = sizes[path];
+      }
+    });
+    if (updateCallback) updateCallback();
+  } catch (error) {
+    console.error('Failed to calculate folder sizes:', error);
+    ElMessage.error('计算文件夹大小失败');
+  }
+}
+
+const calculateSingleFolderSize = async (file) => {
+  if (!isTauri() || !file || file.type !== 'directory') return;
+  try {
+    const size = await calculateDirSize(file.path);
+    file.size = size;
+    return size;
+  } catch (error) {
+    console.error(`Failed to calculate size for ${file.path}:`, error);
+    throw error;
+  }
 }
 
 // --- Tauri Drag-Drop Listener ---
@@ -316,16 +353,37 @@ const updateCategoryOrder = async (newOrder) => {
   await saveCategories()
 }
 
-const switchCategory = (categoryId) => {
+const switchCategory = async (categoryId) => {
   currentCategory.value = categoryId
   if (categoryId !== SPECIAL_CATEGORIES.ALL_FILES && !filesByCategory.value[categoryId]) {
     filesByCategory.value[categoryId] = []
   }
+
+  // 检测当前分类下的所有文件是否存在
+  if (isTauri()) {
+    const files = getCurrentCategoryFiles()
+    if (files.length > 0) {
+      try {
+        const paths = files.map(f => f.path)
+        const existence = await invoke('check_paths_exist', { paths })
+
+        // 更新文件存在状态
+        files.forEach((file, index) => {
+          file.exists = existence[index]
+        })
+      } catch (error) {
+        console.error('Failed to check file existence:', error)
+      }
+    }
+  }
 }
 
-export { processFiles, deleteFile, openFile, copyFileToCategory, togglePinFile,
-         setupTauriListeners, addCategory, renameCategory, deleteCategory,
-         saveCategories, updateCategoryOrder, switchCategory }
+export {
+  processFiles, deleteFile, openFile, copyFileToCategory, togglePinFile, calculateFolderSizes, calculateSingleFolderSize,
+  setupTauriListeners, addCategory, renameCategory, deleteCategory,
+  saveCategories, updateCategoryOrder, switchCategory,
+  getCurrentCategoryFiles
+}
 
 export const useFileActions = () => ({
   processFiles,
@@ -333,11 +391,14 @@ export const useFileActions = () => ({
   openFile,
   copyFileToCategory,
   togglePinFile,
+  calculateFolderSizes,
+  calculateSingleFolderSize,
   setupTauriListeners,
   addCategory,
   renameCategory,
   deleteCategory,
   saveCategories,
   updateCategoryOrder,
-  switchCategory
+  switchCategory,
+  getCurrentCategoryFiles
 })

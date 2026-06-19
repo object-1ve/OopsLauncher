@@ -35,8 +35,10 @@ import { Window } from "@tauri-apps/api/window";
 import { Minus, CopyDocument, FullScreen, Close, Setting, Search } from "@element-plus/icons-vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useFiles } from "@/composables/useFiles";
+import { isTauri } from "@/utils/env";
 
-const appWindow = new Window("main");
+const isTauriApp = isTauri();
+const appWindow = isTauriApp ? new Window("main") : null;
 const isMaximized = ref(false);
 const { showSearchOverlay } = useFiles();
 
@@ -45,6 +47,7 @@ const toggleSearch = () => {
 };
 
 const openSettings = async () => {
+  if (!isTauriApp) return;
   // 先尝试获取已存在的设置窗口
   const existingWindow = await WebviewWindow.getByLabel("settings");
   if (existingWindow) {
@@ -72,16 +75,19 @@ const openSettings = async () => {
 };
 
 const minimize = async () => {
+  if (!appWindow) return;
   await appWindow.minimize();
 };
 
 const toggleMaximize = async () => {
+  if (!appWindow) return;
   await appWindow.toggleMaximize();
 };
 
 
 
 onMounted(async () => {
+  if (!appWindow) return;
   // 监听窗口大小变化以更新最大化状态图标
   // 注意：Tauri v2 的事件监听可能需要调整，这里先简单实现
   // 实际开发中可以通过监听 tauri://resize 事件或定期检查

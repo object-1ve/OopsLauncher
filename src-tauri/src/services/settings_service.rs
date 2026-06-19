@@ -28,6 +28,7 @@ fn sanitize_launcher_state(state: LauncherState) -> LauncherState {
         sort_method,
         sort_order,
         classify_method,
+        explorer_path: state.explorer_path,
     }
 }
 
@@ -82,6 +83,7 @@ pub fn load_launcher_state(app: &tauri::AppHandle) -> Result<LauncherState, AppE
         sort_method: "openCount".to_string(),
         sort_order: "desc".to_string(),
         classify_method: "none".to_string(),
+        explorer_path: None,
     })
 }
 

@@ -21,7 +21,7 @@
             v-for="(file, index) in globalSearchResults.slice(0, 15)" 
             :key="file.id" 
             class="result-item"
-            :class="{ active: selectedIndex === index }"
+            :class="{ active: selectedIndex === index, 'file-not-found': file.exists === false }"
             @click="handleSelect(file)"
             @mouseover="selectedIndex = index"
             @contextmenu.prevent.stop="handleResultContextMenu($event, file)"
@@ -258,6 +258,15 @@ onUnmounted(() => {
 
 .result-item.active {
   background-color: #f0f7ff;
+}
+
+.result-item.file-not-found {
+  opacity: 0.6;
+}
+
+.result-item.file-not-found .item-name {
+  color: #f56c6c;
+  text-decoration: line-through;
 }
 
 .item-icon {

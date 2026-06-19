@@ -2,7 +2,7 @@
   <div id="app" @contextmenu.prevent>
     <!-- 路由视图 -->
     <router-view />
-    
+
     <!-- 全局搜索遮罩层 -->
     <SearchOverlay />
   </div>
@@ -26,11 +26,13 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "@/utils/env";
 
 const { settings, isInitializing } = useSettings();
 const { saveFiles, showSearchOverlay } = useFiles();
 const route = useRoute();
-const appWindow = getCurrentWebviewWindow();
+const isTauriApp = isTauri();
+const appWindow = isTauriApp ? getCurrentWebviewWindow() : null;
 
 const isEditableElement = (target) => {
   const el = target instanceof HTMLElement ? target : null;
@@ -91,12 +93,12 @@ const sendNativeNotification = async (title, body) => {
 };
 
 const registerAppShortcut = async (key, handler, { showSuccess = false, name = '' } = {}) => {
-  if (appWindow.label !== "main") return;
+  if (!isTauriApp || appWindow?.label !== "main") return;
   const shortcut = settings.value.shortcuts[key];
   if (!shortcut) return;
 
   try {
-    try { await unregister(shortcut); } catch (e) {}
+    try { await unregister(shortcut); } catch (e) { }
     await register(shortcut, async (event) => {
       if (event?.state === "Released") return;
       await handler();
@@ -149,7 +151,7 @@ const registerAllShortcuts = async () => {
 watch(
   () => settings.value.shortcuts.showHide,
   async (newVal, oldVal) => {
-    if (oldVal) await unregister(oldVal).catch(() => {});
+    if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerShowHideShortcut(true);
   }
 );
@@ -157,7 +159,7 @@ watch(
 watch(
   () => settings.value.shortcuts.copyTime,
   async (newVal, oldVal) => {
-    if (oldVal) await unregister(oldVal).catch(() => {});
+    if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerCopyTimeShortcut(true);
   }
 );
@@ -165,7 +167,7 @@ watch(
 watch(
   () => settings.value.shortcuts.testNotification,
   async (newVal, oldVal) => {
-    if (oldVal) await unregister(oldVal).catch(() => {});
+    if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerTestNotificationShortcut(true);
   }
 );
@@ -174,9 +176,8 @@ watch(
 watch(
   () => settings.value.appearance.transparency,
   async (val) => {
-    if (appWindow && typeof appWindow.setOpacity === "function") {
-      await appWindow.setOpacity(val);
-    }
+    if (!isTauriApp || !appWindow || typeof appWindow.setOpacity !== "function") return;
+    await appWindow.setOpacity(val);
   },
   { immediate: true }
 );
@@ -186,7 +187,7 @@ watch(
   () => settings.value.general.hideTaskbar,
   async (val) => {
     // 仅在主窗口执行任务栏隐藏逻辑
-    if (appWindow.label !== "main") return;
+    if (!isTauriApp || appWindow?.label !== "main") return;
     try {
       await invoke("set_skip_taskbar", { skip: val });
     } catch (err) {
@@ -197,6 +198,7 @@ watch(
 
 onMounted(async () => {
   window.addEventListener("keydown", handleGlobalTabOpenSearch);
+  if (!isTauriApp || !appWindow) return;
   try {
     // 检查是否是开机自启动（静默模式）
     const isMinimized = await invoke("check_is_minimized");
@@ -259,16 +261,17 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error("Failed to initialize app:", error);
-    await appWindow.show().catch(() => {});
+    await appWindow.show().catch(() => { });
   }
 });
 
 onUnmounted(async () => {
   window.removeEventListener("keydown", handleGlobalTabOpenSearch);
+  if (!isTauriApp) return;
   const { showHide, copyTime, testNotification } = settings.value.shortcuts;
-  if (showHide) await unregister(showHide).catch(() => {});
-  if (copyTime) await unregister(copyTime).catch(() => {});
-  if (testNotification) await unregister(testNotification).catch(() => {});
+  if (showHide) await unregister(showHide).catch(() => { });
+  if (copyTime) await unregister(copyTime).catch(() => { });
+  if (testNotification) await unregister(testNotification).catch(() => { });
 });
 </script>
 

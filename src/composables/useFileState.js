@@ -55,11 +55,13 @@ export const generateId = () => {
 
 // 特殊分类 ID
 export const SPECIAL_CATEGORIES = {
-  ALL_FILES: 'all_files'
+  ALL_FILES: 'all_files',
+  FILE_EXPLORER: 'file_explorer'
 }
 
 // Module-level singleton state
 export const currentCategory = ref(SPECIAL_CATEGORIES.ALL_FILES)
+export const explorerPath = ref('')
 export const sortMethod = ref('openCount')
 export const sortOrder = ref('desc')
 export const classifyMethod = ref('none')
@@ -119,7 +121,7 @@ export const sortFiles = (files) => {
   })
 }
 
-export const getCurrentCategoryFiles = () => {
+export function getCurrentCategoryFiles() {
   if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
     const allFiles = Object.values(filesByCategory.value).flat()
     const uniqueFilesMap = new Map()

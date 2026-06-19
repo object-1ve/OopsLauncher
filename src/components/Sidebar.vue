@@ -3,79 +3,54 @@
     <div class="sidebar-menu">
       <!-- 特殊分类：全部文件 -->
       <div class="special-categories">
-        <div
-          class="menu-item special-item"
-          :class="{ active: currentCategory === SPECIAL_CATEGORIES.ALL_FILES }"
-          @click="handleMenuSelect(SPECIAL_CATEGORIES.ALL_FILES)"
-        >
+        <div class="menu-item special-item" :class="{ active: currentCategory === SPECIAL_CATEGORIES.ALL_FILES }"
+          @click="handleMenuSelect(SPECIAL_CATEGORIES.ALL_FILES)">
           <div class="item-content">
             <span class="item-name">全部文件</span>
           </div>
         </div>
+        <div class="menu-item special-item" :class="{ active: currentCategory === SPECIAL_CATEGORIES.FILE_EXPLORER }"
+          @click="handleMenuSelect(SPECIAL_CATEGORIES.FILE_EXPLORER)">
+          <div class="item-content">
+            <span class="item-name">资源管理器</span>
+          </div>
+        </div>
       </div>
 
-      <draggable
-        v-model="allCategories"
-        item-key="id"
-        class="menu-items"
-        animation="150"
-        ghost-class="sortable-ghost"
-        drag-class="sortable-drag"
-        :disabled="false"
-        :force-fallback="true"
-        :fallback-tolerance="3"
-        @start="handleDragStart"
-        @move="handleDragMove"
-        @end="handleDragEnd"
-      >
+      <draggable v-model="allCategories" item-key="id" class="menu-items" animation="150" ghost-class="sortable-ghost"
+        drag-class="sortable-drag" :disabled="false" :force-fallback="true" :fallback-tolerance="3"
+        @start="handleDragStart" @move="handleDragMove" @end="handleDragEnd">
         <template #item="{ element: item }">
-          <SidebarItem
-            :item="item"
-            :currentCategory="currentCategory"
-            @categoryChange="handleMenuSelect"
-            @itemContextMenu="handleItemContextMenu"
-          />
+          <SidebarItem :item="item" :currentCategory="currentCategory" @categoryChange="handleMenuSelect"
+            @itemContextMenu="handleItemContextMenu" />
         </template>
         <template #footer>
           <!-- 添加分类输入框 -->
           <div v-if="showAddCategoryInput" class="add-category-input">
-            <el-input
-              v-model="newCategoryName"
-              placeholder="分类名称"
-              size="small"
-              @keyup.enter="handleAddCategory"
-              @blur="handleInputBlur"
-              ref="categoryInput"
-            />
+            <el-input v-model="newCategoryName" placeholder="分类名称" size="small" @keyup.enter="handleAddCategory"
+              @blur="handleInputBlur" ref="categoryInput" />
           </div>
         </template>
       </draggable>
     </div>
 
     <!-- 侧边栏右键菜单 -->
-    <div
-      v-if="sidebarContextMenu && sidebarContextMenu.visible"
-      class="sidebar-context-menu"
-      :style="{
-        left: sidebarContextMenu.x + 'px',
-        top: sidebarContextMenu.y + 'px',
-      }"
-    >
+    <div v-if="sidebarContextMenu && sidebarContextMenu.visible" class="sidebar-context-menu" :style="{
+      left: sidebarContextMenu.x + 'px',
+      top: sidebarContextMenu.y + 'px',
+    }">
       <ul class="context-menu-list">
         <template v-if="sidebarContextMenu.item">
           <li class="context-menu-item" @click="handleRenameFromMenu">
-             重命名
+            重命名
           </li>
-          <li
-            class="context-menu-item delete"
-            @click="handleDeleteFromMenu"
-          >
-             删除
+          <li class="context-menu-item delete" @click="handleDeleteFromMenu">
+            删除
           </li>
         </template>
         <template v-else>
           <li class="context-menu-item" @click="handleAddCategoryFromMenu">
-             添加分类
+            添加分类
           </li>
         </template>
       </ul>
@@ -276,11 +251,13 @@ onUnmounted(() => {
 <style scoped>
 /* 侧边栏样式 */
 .sidebar-aside {
-  width: 150px; /* 固定宽度 */
+  width: 150px;
+  /* 固定宽度 */
   background-color: #fafafa;
   display: flex;
   flex-direction: column;
-  height: 100%; /* 确保侧边栏占满高度 */
+  height: 100%;
+  /* 确保侧边栏占满高度 */
 
   user-select: none;
   -webkit-user-select: none;
@@ -290,13 +267,14 @@ onUnmounted(() => {
 
 .sidebar-menu {
   flex: 1;
-  overflow-y: auto; /* 允许菜单内容滚动 */
+  overflow-y: auto;
+  /* 允许菜单内容滚动 */
   position: relative;
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-  background-color:white;
+  background-color: white;
 }
 
 .special-categories {
@@ -471,10 +449,12 @@ onUnmounted(() => {
 .sidebar-menu::-webkit-scrollbar {
   width: 6px;
 }
+
 .sidebar-menu::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.1);
   border-radius: 3px;
 }
+
 .sidebar-menu::-webkit-scrollbar-track {
   background-color: transparent;
 }
@@ -499,7 +479,8 @@ onUnmounted(() => {
 
   .menu-title span,
   .menu-item {
-    display: none; /* 暂时隐藏文字，实际可能需要显示图标 */
+    display: none;
+    /* 暂时隐藏文字，实际可能需要显示图标 */
   }
 }
 </style>

@@ -12,6 +12,16 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
 
     conn.execute(
+        "CREATE TABLE IF NOT EXISTS folder_sizes (
+            path TEXT PRIMARY KEY,
+            size INTEGER NOT NULL,
+            last_updated INTEGER NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS files (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -24,6 +34,7 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
             category TEXT NOT NULL DEFAULT 'main',
             open_count INTEGER DEFAULT 0,
             created_at INTEGER,
+            modified_at INTEGER,
             notes TEXT,
             is_pinned INTEGER DEFAULT 0,
             UNIQUE(category, path)
@@ -72,11 +83,8 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
     let add_column = |conn: &Connection, col: &str, def: &str| -> Result<(), String> {
         if !columns.contains(&col.to_string()) {
             println!("Adding {} column to files table...", col);
-            conn.execute(
-                &format!("ALTER TABLE files ADD COLUMN {} {}", col, def),
-                [],
-            )
-            .map_err(|e| e.to_string())?;
+            conn.execute(&format!("ALTER TABLE files ADD COLUMN {} {}", col, def), [])
+                .map_err(|e| e.to_string())?;
         }
         Ok(())
     };
@@ -86,6 +94,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
     add_column(conn, "content", "TEXT")?;
     add_column(conn, "display_name", "TEXT")?;
     add_column(conn, "created_at", "INTEGER")?;
+    add_column(conn, "modified_at", "INTEGER")?;
     add_column(conn, "notes", "TEXT")?;
     add_column(conn, "is_pinned", "INTEGER DEFAULT 0")?;
 
@@ -99,7 +108,9 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
         .prepare("PRAGMA index_list(files)")
         .map_err(|e| e.to_string())?;
     let indexes: Vec<(String, bool)> = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(1)?, row.get::<_, bool>(2)?)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(1)?, row.get::<_, bool>(2)?))
+        })
         .map_err(|e| e.to_string())?
         .filter_map(|result| result.ok())
         .collect();
@@ -142,6 +153,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
                 category TEXT NOT NULL DEFAULT 'main',
                 open_count INTEGER DEFAULT 0,
                 created_at INTEGER,
+                modified_at INTEGER,
                 notes TEXT,
                 is_pinned INTEGER DEFAULT 0,
                 UNIQUE(category, path)
@@ -152,7 +164,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
 
         tx.execute(
             "INSERT OR IGNORE INTO files (
-                id, name, display_name, path, size, type, icon, content, category, open_count, created_at, notes, is_pinned
+                id, name, display_name, path, size, type, icon, content, category, open_count, created_at, modified_at, notes, is_pinned
             )
             SELECT
                 id,
@@ -165,6 +177,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
                 content,
                 COALESCE(category, 'main'),
                 COALESCE(open_count, 0),
+                created_at,
                 created_at,
                 notes,
                 0

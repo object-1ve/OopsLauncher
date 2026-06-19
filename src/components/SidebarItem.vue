@@ -1,27 +1,13 @@
 <template>
-  <div 
-    class="sidebar-item-container"
-  >
-    <div
-      class="menu-item"
-      :class="{
-        active: currentCategory === item.id,
-        'is-editing': isEditing,
-      }"
-      @click="handleSelect"
-      @contextmenu.prevent="handleContextMenu"
-    >
+  <div class="sidebar-item-container">
+    <div class="menu-item" :class="{
+      active: currentCategory === item.id,
+      'is-editing': isEditing,
+    }" @click="handleSelect" @contextmenu.prevent="handleContextMenu">
       <div class="item-content">
         <template v-if="isEditing">
-          <el-input
-            v-model="editName"
-            size="small"
-            class="edit-input"
-            @keyup.enter="saveRename"
-            @blur="cancelRename"
-            ref="editInputRef"
-            @click.stop
-          />
+          <el-input v-model="editName" size="small" class="edit-input" @keyup.enter="saveRename" @blur="cancelRename"
+            ref="editInputRef" @click.stop />
         </template>
         <span v-else class="item-name">{{ item.name }}</span>
       </div>
@@ -84,7 +70,7 @@ defineExpose({
 .menu-item {
   min-height: 40px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   padding: 8px 20px;
   font-size: 14px;
@@ -105,7 +91,7 @@ defineExpose({
 
 .item-content {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 4px;
   overflow: hidden;
   flex: 1;

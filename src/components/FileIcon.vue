@@ -2,6 +2,7 @@
   <div :class="settings.appearance.itemLayout">
     <div
       class="icon-item"
+      :class="{ 'file-not-found': file.exists === false }"
       :data-file-id="file.id"
       :style="
         settings.appearance.itemLayout === 'tile'
@@ -77,6 +78,10 @@ const fileHoverTitle = computed(() => {
     `位置: ${props.file.path || "未知"}`,
   ];
 
+  if (props.file.exists === false) {
+    baseLines.unshift("⚠️ 文件不存在");
+  }
+
   if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
     baseLines.push(`来源分类: ${sourceCategoryName.value}`);
   }
@@ -128,6 +133,16 @@ const handleContextMenu = (e) => {
 .icon-item:hover {
   background-color: v-bind("settings.appearance.css.hoverColor");
   opacity: 1;
+}
+
+.icon-item.file-not-found {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.icon-item.file-not-found .file-name {
+  color: #f56c6c !important;
+  text-decoration: line-through;
 }
 
 .icon-item.locating-highlight {

@@ -1,7 +1,10 @@
 <template>
   <div class="home-view">
-    <!-- 使用DropZone组件 -->
-    <DropZone :pinnedCurrentFiles="pinnedCurrentFiles" :currentFiles="currentFiles"
+    <!-- 使用 FileExplorer 组件 -->
+    <FileExplorer v-if="currentCategory === SPECIAL_CATEGORIES.FILE_EXPLORER" />
+
+    <!-- 使用 DropZone 组件 -->
+    <DropZone v-else :pinnedCurrentFiles="pinnedCurrentFiles" :currentFiles="currentFiles"
       :groupedCurrentFiles="groupedCurrentFiles" :classifyMethod="classifyMethod" @fileAdd="handleFileAdd"
       @fileOpen="openFile" @fileDelete="deleteFile" @contextmenu="handleContextMenu" />
 
@@ -26,6 +29,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import DropZone from '@/components/DropZone.vue'
+import FileExplorer from '@/components/FileExplorer.vue'
 import ContextMenu from '@/components/ContextMenu.vue'
 import FileInfoDialog from '@/components/FileInfoDialog.vue'
 import { useFiles, SPECIAL_CATEGORIES } from '@/composables/useFiles'

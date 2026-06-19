@@ -2,11 +2,11 @@ import { watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from '@/utils/env'
 import {
-  currentCategory, sortMethod, sortOrder, classifyMethod,
+  currentCategory, sortMethod, sortOrder, classifyMethod, explorerPath,
   customCategories, filesByCategory,
   generateDisplayName, normalizePathKey, generateId,
   normalizeCategory, normalizeSortMethod, normalizeSortOrder, normalizeClassifyMethod,
-  SPECIAL_CATEGORIES,
+  SPECIAL_CATEGORIES, getCurrentCategoryFiles,
   isApplyingLauncherState, setIsApplyingLauncherState,
   hasLoaded, setHasLoaded
 } from './useFileState'
@@ -20,7 +20,8 @@ const getLauncherStatePayload = () => ({
   current_category: normalizeCategory(currentCategory.value),
   sort_method: normalizeSortMethod(sortMethod.value),
   sort_order: normalizeSortOrder(sortOrder.value),
-  classify_method: normalizeClassifyMethod(classifyMethod.value)
+  classify_method: normalizeClassifyMethod(classifyMethod.value),
+  explorer_path: explorerPath.value
 })
 
 const applyLauncherState = (state = {}) => {
@@ -28,6 +29,7 @@ const applyLauncherState = (state = {}) => {
   sortMethod.value = normalizeSortMethod(state.sort_method ?? state.sortMethod)
   sortOrder.value = normalizeSortOrder(state.sort_order ?? state.sortOrder)
   classifyMethod.value = normalizeClassifyMethod(state.classify_method ?? state.classifyMethod)
+  explorerPath.value = state.explorer_path ?? state.explorerPath ?? ''
 }
 
 const saveLauncherState = async () => {
@@ -58,7 +60,7 @@ const saveLauncherState = async () => {
   }
 }
 
-watch([currentCategory, sortMethod, sortOrder, classifyMethod], () => {
+watch([currentCategory, sortMethod, sortOrder, classifyMethod, explorerPath], () => {
   saveLauncherState()
 })
 
@@ -254,6 +256,18 @@ const loadFiles = async () => {
     setHasLoaded(true)
     console.log('Final organized files (by ID):', filesByCategory.value)
     console.log('Files loaded successfully from DB:', loaded?.length || 0, 'files')
+
+    // 初始加载后，检测当前分类下的文件是否存在
+    if (isTauri()) {
+      const files = getCurrentCategoryFiles()
+      if (files.length > 0) {
+        const paths = files.map(f => f.path)
+        const existence = await invoke('check_paths_exist', { paths })
+        files.forEach((file, index) => {
+          file.exists = existence[index]
+        })
+      }
+    }
   } catch (error) {
     console.error('Failed to load files from DB:', error)
     const saved = localStorage.getItem('oopslauncher_files')

@@ -3,12 +3,14 @@ import {
   currentFiles, pinnedCurrentFiles, groupedCurrentFiles, allCategories,
   sortMethod, sortOrder, classifyMethod,
   searchQuery, globalSearchResults, showSearchOverlay,
-  SPECIAL_CATEGORIES
+  SPECIAL_CATEGORIES, explorerPath
 } from './useFileState'
 import { saveFiles, loadFiles } from './useFilePersistence'
-import { processFiles, deleteFile, openFile, copyFileToCategory, togglePinFile,
-         setupTauriListeners, addCategory, renameCategory, deleteCategory,
-         updateCategoryOrder, switchCategory } from './useFileActions'
+import {
+  processFiles, deleteFile, openFile, copyFileToCategory, togglePinFile, calculateFolderSizes, calculateSingleFolderSize,
+  setupTauriListeners, addCategory, renameCategory, deleteCategory,
+  updateCategoryOrder, switchCategory
+} from './useFileActions'
 
 export { SPECIAL_CATEGORIES }
 
@@ -23,6 +25,7 @@ export function useFiles() {
     searchQuery,
     showSearchOverlay,
     SPECIAL_CATEGORIES,
+    explorerPath,
 
     // Computed
     currentFiles,
@@ -44,6 +47,8 @@ export function useFiles() {
     openFile,
     copyFileToCategory,
     togglePinFile,
+    calculateFolderSizes,
+    calculateSingleFolderSize,
 
     // Persistence
     saveFiles,
