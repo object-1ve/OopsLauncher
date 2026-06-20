@@ -7,6 +7,8 @@ pub mod tray;
 pub mod services;
 pub mod commands;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // debug 构建下不会启用单实例插件，builder 不会被重新赋值，故抑制 unused_mut 警告
