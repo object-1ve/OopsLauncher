@@ -416,6 +416,52 @@ pub fn get_file_info(path: String) -> Result<FileInfo, AppError> {
     })
 }
 
+/// 使用 ShellExecuteW 以管理员权限（runas 动词）启动可执行文件，触发 UAC 提权。
+/// 用于启动那些清单中声明 requireAdministrator 的程序（CreateProcess 会返回 error 740）。
+#[cfg(target_os = "windows")]
+fn launch_exe_elevated(file: &str, dir: Option<&str>) -> Result<(), AppError> {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    fn to_wide(s: &str) -> Vec<u16> {
+        OsStr::new(s)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
+    }
+
+    let verb = to_wide("runas");
+    let file_w = to_wide(file);
+    let dir_w = dir.map(to_wide);
+
+    let ret = unsafe {
+        ShellExecuteW(
+            HWND(0),
+            PCWSTR(verb.as_ptr()),
+            PCWSTR(file_w.as_ptr()),
+            PCWSTR::null(),
+            dir_w
+                .as_ref()
+                .map_or(PCWSTR::null(), |d| PCWSTR(d.as_ptr())),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    // ShellExecuteW 返回值 <= 32 表示失败（如用户在 UAC 对话框点了“否”会返回 SE_ERR_ACCESSDENIED）。
+    let code = ret.0 as isize;
+    if code <= 32 {
+        return Err(AppError::Platform(format!(
+            "提权启动失败 (ShellExecute code {})",
+            code
+        )));
+    }
+    Ok(())
+}
+
 pub fn open_path(path: String) -> Result<(), AppError> {
     let path = path.trim().to_string();
     if path.is_empty() {
@@ -437,11 +483,18 @@ pub fn open_path(path: String) -> Result<(), AppError> {
                 .map_or(false, |ext| ext.to_string_lossy().to_lowercase() == "exe")
         {
             if let Some(parent) = p.parent() {
-                Command::new(&path)
-                    .current_dir(parent)
-                    .spawn()
-                    .map_err(|e| AppError::Platform(format!("Failed to launch exe: {}", e)))?;
-                return Ok(());
+                let parent_str = parent.to_string_lossy().to_string();
+                match Command::new(&path).current_dir(parent).spawn() {
+                    Ok(_) => return Ok(()),
+                    Err(e) => {
+                        // error 740 = ERROR_ELEVATION_REQUIRED：目标程序要求管理员权限，
+                        // CreateProcess 无法提权，回退到 ShellExecute 的 runas 动词触发 UAC。
+                        if e.raw_os_error() == Some(740) {
+                            return launch_exe_elevated(&path, Some(&parent_str));
+                        }
+                        return Err(AppError::Platform(format!("Failed to launch exe: {}", e)));
+                    }
+                }
             }
         }
 
