@@ -164,6 +164,19 @@
             打开文件所在位置
           </li>
           <li class="context-menu-divider"></li>
+          <li class="context-menu-item has-submenu">
+            添加到分类
+            <ul class="submenu" :class="{ 'submenu-left': isMenuOnRight }">
+              <li v-for="cat in allCategories" :key="cat.id" class="context-menu-item"
+                @click="handleAddToCategory(explorerMenu.file, cat.id)">
+                {{ cat.name }}
+              </li>
+              <li v-if="allCategories.length === 0" class="context-menu-item disabled">
+                暂无分类
+              </li>
+            </ul>
+          </li>
+          <li class="context-menu-divider"></li>
           <li class="context-menu-item" @click="handleCopy(explorerMenu.file)">
             复制
           </li>
@@ -217,7 +230,7 @@ import { useFiles } from '@/composables/useFiles';
 import { startFolderSizeTask, getFileIcon, openFileLocation } from '@/api/file';
 import { ElMessage } from 'element-plus';
 
-const { explorerPath, explorerHighlightPath } = useFiles();
+const { explorerPath, explorerHighlightPath, allCategories, processFiles } = useFiles();
 
 const files = ref([]);
 const loading = ref(false);
@@ -652,6 +665,24 @@ const handleOpenFileLocation = async (file) => {
   } catch (error) {
     console.error('Failed to open file location:', error);
     ElMessage.error(`打开文件所在位置失败: ${error}`);
+  } finally {
+    hideContextMenu();
+  }
+};
+
+const handleAddToCategory = async (file, categoryId) => {
+  try {
+    const result = await processFiles([file], categoryId);
+    if (result.addedCount > 0) {
+      ElMessage.success(`成功添加到分类`);
+    } else if (result.existingCount > 0) {
+      ElMessage.warning(`该分类已存在此文件`);
+    } else if (result.error === 'cannot_add_to_special_category') {
+      ElMessage.warning(`不能添加到特殊分类`);
+    }
+  } catch (error) {
+    console.error('Failed to add to category:', error);
+    ElMessage.error(`添加失败: ${error}`);
   } finally {
     hideContextMenu();
   }
