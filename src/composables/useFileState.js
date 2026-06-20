@@ -62,6 +62,8 @@ export const SPECIAL_CATEGORIES = {
 // Module-level singleton state
 export const currentCategory = ref(SPECIAL_CATEGORIES.ALL_FILES)
 export const explorerPath = ref('')
+export const explorerHighlightPath = ref('')
+export const dragTargetCategory = ref(null)
 export const sortMethod = ref('openCount')
 export const sortOrder = ref('desc')
 export const classifyMethod = ref('none')

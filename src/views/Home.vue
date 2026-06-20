@@ -16,9 +16,10 @@
       :showLocateToCategory="currentCategory === SPECIAL_CATEGORIES.ALL_FILES && !!contextMenu.selectedFile?.category"
       :showPinToggle="!!contextMenu.selectedFile?.category" :selectedFileIsPinned="!!contextMenu.selectedFile?.isPinned"
       @delete="handleContextMenuDelete" @hide="hideContextMenu" @openLocation="handleOpenLocation"
-      @openTerminal="handleOpenTerminal" @copyPath="handleCopyPath" @openWith="handleOpenWith"
-      @editInfo="handleEditInfo" @sort="handleSort" @classify="handleClassify" @toggleDisplay="handleToggleDisplay"
-      @copyToCategory="handleCopyToCategory" @locateToCategory="handleLocateToCategory" @togglePin="handleTogglePin" />
+      @openInExplorer="handleOpenInExplorer" @openTerminal="handleOpenTerminal" @copyPath="handleCopyPath"
+      @openWith="handleOpenWith" @editInfo="handleEditInfo" @sort="handleSort" @classify="handleClassify"
+      @toggleDisplay="handleToggleDisplay" @copyToCategory="handleCopyToCategory"
+      @locateToCategory="handleLocateToCategory" @togglePin="handleTogglePin" />
 
     <!-- 文件信息编辑弹窗 -->
     <FileInfoDialog v-model:visible="fileInfoDialog.visible" :current-file="fileInfoDialog.currentFile"
@@ -58,7 +59,9 @@ const {
   classifyMethod,
   allCategories,
   copyFileToCategory,
-  togglePinFile
+  togglePinFile,
+  explorerPath,
+  explorerHighlightPath
 } = useFiles()
 
 const { settings } = useSettings()
@@ -160,6 +163,31 @@ const handleOpenLocation = async (file) => {
     console.error('Failed to open file location:', error)
     ElMessage.error(`打开文件所在位置失败: ${error.message || error}`)
   }
+}
+
+const handleOpenInExplorer = (file) => {
+  if (!file || !file.path) return
+
+  let targetPath = file.path
+  // 统一行为：无论是文件还是文件夹，都打开其父目录并高亮该项
+  // 这样用户能明确看到该程序在资源管理器中的位置
+  const lastSlashIndex = Math.max(targetPath.lastIndexOf('/'), targetPath.lastIndexOf('\\'))
+
+  if (lastSlashIndex !== -1) {
+    targetPath = targetPath.substring(0, lastSlashIndex)
+    // 如果是磁盘根目录（如 C:\），确保保留斜杠
+    if (targetPath.endsWith(':')) {
+      targetPath += '\\'
+    }
+  } else {
+    // 如果没有斜杠，说明可能是根目录，保持原样
+    targetPath = file.path
+  }
+
+  explorerPath.value = targetPath
+  explorerHighlightPath.value = file.path
+  switchCategory(SPECIAL_CATEGORIES.FILE_EXPLORER)
+  hideContextMenu()
 }
 
 const handleOpenTerminal = async (file) => {

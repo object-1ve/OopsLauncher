@@ -3,8 +3,12 @@
     <div class="sidebar-menu">
       <!-- 特殊分类：全部文件 -->
       <div class="special-categories">
-        <div class="menu-item special-item" :class="{ active: currentCategory === SPECIAL_CATEGORIES.ALL_FILES }"
-          @click="handleMenuSelect(SPECIAL_CATEGORIES.ALL_FILES)">
+        <div class="menu-item special-item" :data-drop-category="SPECIAL_CATEGORIES.ALL_FILES" :class="{
+          active: currentCategory === SPECIAL_CATEGORIES.ALL_FILES,
+          'is-dragover': specialDragOver === SPECIAL_CATEGORIES.ALL_FILES || dragTargetCategory === SPECIAL_CATEGORIES.ALL_FILES
+        }" @click="handleMenuSelect(SPECIAL_CATEGORIES.ALL_FILES)"
+          @dragover.prevent="handleSpecialDragOver(SPECIAL_CATEGORIES.ALL_FILES)" @dragleave="handleSpecialDragLeave"
+          @drop="handleSpecialDrop($event, SPECIAL_CATEGORIES.ALL_FILES)">
           <div class="item-content">
             <span class="item-name">全部文件</span>
           </div>
@@ -79,8 +83,59 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(["categoryChange"]);
 
-const { allCategories, addCategory, deleteCategory, updateCategoryOrder, SPECIAL_CATEGORIES } = useFiles();
+const { allCategories, addCategory, deleteCategory, updateCategoryOrder, processFiles, SPECIAL_CATEGORIES, dragTargetCategory } = useFiles();
 const { registerMenu, unregisterMenu } = useContextMenu();
+
+const specialDragOver = ref(null);
+
+const handleSpecialDragOver = (id) => {
+  specialDragOver.value = id;
+  dragTargetCategory.value = id;
+};
+
+const handleSpecialDragLeave = () => {
+  specialDragOver.value = null;
+  dragTargetCategory.value = null;
+};
+
+const handleSpecialDrop = async (event, categoryId) => {
+  event.preventDefault();
+  event.stopPropagation();
+  specialDragOver.value = null;
+  dragTargetCategory.value = null;
+
+  // 1. 处理内部拖拽
+  const internalData = event.dataTransfer.getData('application/x-oops-file');
+  if (internalData) {
+    try {
+      const file = JSON.parse(internalData);
+      const result = await processFiles([file], categoryId);
+      handleProcessResult(result, categoryId);
+      return;
+    } catch (err) {
+      console.error('Failed to process internal drop:', err);
+    }
+  }
+
+  // 2. 处理外部拖拽
+  const files = Array.from(event.dataTransfer.files);
+  if (files.length > 0) {
+    const result = await processFiles(files, categoryId);
+    handleProcessResult(result, categoryId);
+  }
+};
+
+const handleProcessResult = (result, categoryId) => {
+  if (result.addedCount > 0) {
+    const targetCat = allCategories.value.find(c => c.id === (result.targetCategory || categoryId));
+    const catName = targetCat ? `「${targetCat.name}」` : '默认分类';
+    ElMessage.success(`成功添加 ${result.addedCount} 个文件到 ${catName}`);
+  } else if (result.existingCount > 0) {
+    ElMessage.warning(`文件已存在`);
+  } else if (result.error === 'cannot_add_to_special_category') {
+    ElMessage.warning('请先创建一个分类再添加文件');
+  }
+};
 
 // 侧边栏元素引用
 const menuItemsRef = ref(null);
@@ -245,6 +300,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener("click", hideContextMenu);
+  dragTargetCategory.value = null;
 });
 </script>
 
@@ -300,6 +356,12 @@ onUnmounted(() => {
 .menu-item.special-item.active {
   background-color: #ececec;
   border-right: 3px solid #409eff;
+}
+
+.menu-item.special-item.is-dragover {
+  background-color: #ecf5ff;
+  border-right: 3px solid #409eff;
+  box-shadow: inset 0 0 0 1px #409eff;
 }
 
 .menu-item.special-item:active {

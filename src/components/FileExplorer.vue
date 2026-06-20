@@ -63,9 +63,12 @@
                 <p><strong>路径:</strong> {{ file.path }}</p>
               </div>
             </template>
-            <div class="file-item"
-              :class="{ 'is-selected': selectedFile?.path === file.path, 'is-reparse-point': file.isReparsePoint }"
-              @click.stop="handleItemClick(file)" @contextmenu.stop.prevent="handleContextMenu($event, file)">
+            <div class="file-item" :class="{
+              'is-selected': selectedFile?.path === file.path,
+              'is-reparse-point': file.isReparsePoint,
+              'is-highlighted': explorerHighlightPath === file.path
+            }" draggable="true" @dragstart="handleFileDragStart($event, file)" @click.stop="handleItemClick(file)"
+              @contextmenu.stop.prevent="handleContextMenu($event, file)">
               <div class="file-icon-wrapper">
                 <template v-if="file.icon">
                   <img :src="file.icon" class="file-icon" />
@@ -110,9 +113,12 @@
           </div>
         </div>
         <div class="file-list-content" :style="{ transform: `translateY(${virtualList.offsetY}px)` }">
-          <div v-for="file in virtualList.items" :key="file.path" class="file-list-item"
-            :class="{ 'is-selected': selectedFile?.path === file.path, 'is-reparse-point': file.isReparsePoint }"
-            @click.stop="handleItemClick(file)" @contextmenu.stop.prevent="handleContextMenu($event, file)">
+          <div v-for="file in virtualList.items" :key="file.path" class="file-list-item" :class="{
+            'is-selected': selectedFile?.path === file.path,
+            'is-reparse-point': file.isReparsePoint,
+            'is-highlighted': explorerHighlightPath === file.path
+          }" draggable="true" @dragstart="handleFileDragStart($event, file)" @click.stop="handleItemClick(file)"
+            @contextmenu.stop.prevent="handleContextMenu($event, file)">
             <div class="col-name">
               <template v-if="file.icon">
                 <img :src="file.icon" class="file-list-icon" />
@@ -168,12 +174,10 @@
           <li class="context-menu-item delete" @click="handleDelete(explorerMenu.file)">
             删除
           </li>
-          <template v-if="explorerMenu.file.type === 'directory'">
-            <li class="context-menu-divider"></li>
-            <li class="context-menu-item" @click="handleCalculateFolderSizes(explorerMenu.file)">
-              计算文件夹大小
-            </li>
-          </template>
+          <li class="context-menu-divider"></li>
+          <li class="context-menu-item" @click="handleCalculateFolderSizes()">
+            计算全部文件大小
+          </li>
         </template>
         <template v-else>
           <li class="context-menu-item has-submenu">
@@ -196,7 +200,7 @@
           </li>
           <li class="context-menu-divider"></li>
           <li class="context-menu-item" @click="handleCalculateFolderSizes()">
-            计算所有文件夹大小
+            计算全部文件大小
           </li>
         </template>
       </ul>
@@ -213,7 +217,7 @@ import { useFiles } from '@/composables/useFiles';
 import { startFolderSizeTask, getFileIcon, openFileLocation } from '@/api/file';
 import { ElMessage } from 'element-plus';
 
-const { explorerPath } = useFiles();
+const { explorerPath, explorerHighlightPath } = useFiles();
 
 const files = ref([]);
 const loading = ref(false);
@@ -252,7 +256,7 @@ const handleSort = (key) => {
     sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
   } else {
     sortKey.value = key;
-    sortOrder.value = 'asc';
+    sortOrder.value = 'desc';
   }
 };
 
@@ -369,6 +373,40 @@ watch([virtualList, virtualGrid], () => {
   }
 }, { immediate: true });
 
+// 监听高亮路径，执行滚动
+watch([sortedFiles, explorerHighlightPath], () => {
+  if (explorerHighlightPath.value && sortedFiles.value.length > 0) {
+    const index = sortedFiles.value.findIndex(f => f.path === explorerHighlightPath.value);
+    if (index !== -1) {
+      nextTick(() => {
+        if (!explorerContentRef.value) return;
+
+        let targetScrollTop = 0;
+        if (viewMode.value === 'list') {
+          targetScrollTop = Math.max(0, index * LIST_ITEM_HEIGHT - containerHeight.value / 2 + LIST_ITEM_HEIGHT / 2);
+        } else {
+          const contentWidth = explorerContentRef.value.clientWidth - 40;
+          const itemsPerRow = Math.max(1, Math.floor(contentWidth / GRID_ITEM_WIDTH));
+          const row = Math.floor(index / itemsPerRow);
+          targetScrollTop = Math.max(0, row * GRID_ITEM_HEIGHT - containerHeight.value / 2 + GRID_ITEM_HEIGHT / 2);
+        }
+
+        explorerContentRef.value.scrollTop = targetScrollTop;
+        scrollTop.value = targetScrollTop;
+
+        // 3秒后清除高亮
+        if (highlightTimeout) clearTimeout(highlightTimeout);
+        highlightTimeout = setTimeout(() => {
+          if (explorerHighlightPath.value) {
+            explorerHighlightPath.value = '';
+          }
+          highlightTimeout = null;
+        }, 3000);
+      });
+    }
+  }
+}, { immediate: true });
+
 const formatSize = (bytes) => {
   if (!bytes || bytes === 0) return '0 B';
   const k = 1024;
@@ -380,7 +418,14 @@ const formatSize = (bytes) => {
 const formatDate = (timestamp) => {
   if (!timestamp) return '-';
   const date = new Date(timestamp);
-  return date.toLocaleString();
+  const pad2 = (value) => String(value).padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+  const hours = pad2(date.getHours());
+  const minutes = pad2(date.getMinutes());
+  const seconds = pad2(date.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 const clipboard = ref({
@@ -390,6 +435,7 @@ const clipboard = ref({
 
 const selectedFile = ref(null);
 const activeFolderSizeTaskId = ref('');
+let highlightTimeout = null;
 
 const isMenuOnRight = computed(() => {
   return explorerMenu.value.x > window.innerWidth / 2;
@@ -410,11 +456,12 @@ const pathParts = computed(() => {
   return currentPath.value.split(/[\\/]/).filter(p => p);
 });
 
-const loadDirectory = async (path) => {
+const loadDirectory = async (path, options = {}) => {
+  const { resetScroll = true } = options;
   loading.value = true;
   // 切换路径时清空图标缓存和滚动位置
   iconCache.value.clear();
-  if (explorerContentRef.value) {
+  if (resetScroll && explorerContentRef.value) {
     explorerContentRef.value.scrollTop = 0;
     scrollTop.value = 0;
   }
@@ -610,6 +657,14 @@ const handleOpenFileLocation = async (file) => {
   }
 };
 
+const handleFileDragStart = (event, file) => {
+  if (file && file.path) {
+    // 设置拖拽数据，包含文件路径
+    event.dataTransfer.setData('application/x-oops-file', JSON.stringify(file));
+    event.dataTransfer.effectAllowed = 'copy';
+  }
+};
+
 const handleCopy = (file) => {
   clipboard.value = {
     path: file.path,
@@ -664,10 +719,16 @@ const handlePaste = async () => {
 };
 
 const handleDelete = async (file) => {
+  const preservedScrollTop = explorerContentRef.value?.scrollTop ?? scrollTop.value;
   try {
     await invoke('delete_to_trash', { path: file.path });
     ElMessage.success('已移至回收站');
-    loadDirectory(currentPath.value);
+    await loadDirectory(currentPath.value, { resetScroll: false });
+    await nextTick();
+    if (explorerContentRef.value) {
+      explorerContentRef.value.scrollTop = preservedScrollTop;
+      scrollTop.value = explorerContentRef.value.scrollTop;
+    }
   } catch (error) {
     console.error('Failed to delete:', error);
     ElMessage.error(`删除失败: ${error}`);
@@ -868,6 +929,13 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
   background-color: #ecf5ff;
 }
 
+.file-list-item.is-highlighted {
+  background-color: #fdf6ec;
+  outline: 2px solid #e6a23c;
+  outline-offset: -2px;
+  z-index: 1;
+}
+
 .col-name {
   flex: 2;
   display: flex;
@@ -888,6 +956,9 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
   flex: 1.5;
   color: #909399;
   font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 .file-list-icon {
@@ -921,6 +992,13 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
 
 .file-item.is-reparse-point {
   opacity: 0.8;
+}
+
+.file-item.is-highlighted {
+  background-color: #fdf6ec;
+  outline: 2px solid #e6a23c;
+  outline-offset: -2px;
+  z-index: 1;
 }
 
 .file-icon-wrapper {

@@ -3,7 +3,7 @@ import {
   currentFiles, pinnedCurrentFiles, groupedCurrentFiles, allCategories,
   sortMethod, sortOrder, classifyMethod,
   searchQuery, globalSearchResults, showSearchOverlay,
-  SPECIAL_CATEGORIES, explorerPath
+  SPECIAL_CATEGORIES, explorerPath, explorerHighlightPath, dragTargetCategory
 } from './useFileState'
 import { saveFiles, loadFiles } from './useFilePersistence'
 import {
@@ -26,6 +26,8 @@ export function useFiles() {
     showSearchOverlay,
     SPECIAL_CATEGORIES,
     explorerPath,
+    explorerHighlightPath,
+    dragTargetCategory,
 
     // Computed
     currentFiles,

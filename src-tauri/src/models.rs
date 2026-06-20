@@ -36,9 +36,14 @@ pub struct Category {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherState {
+    #[serde(alias = "current_category")]
     pub current_category: String,
+    #[serde(alias = "sort_method")]
     pub sort_method: String,
+    #[serde(alias = "sort_order")]
     pub sort_order: String,
+    #[serde(alias = "classify_method")]
     pub classify_method: String,
+    #[serde(alias = "explorer_path")]
     pub explorer_path: Option<String>,
 }

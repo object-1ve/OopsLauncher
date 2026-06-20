@@ -4,9 +4,11 @@
     <ul class="context-menu-list">
       <!-- 文件操作项 -->
       <template v-if="selectedFileId">
-
         <li @click="handleOpenLocation" class="context-menu-item">
           打开文件所在位置
+        </li>
+        <li @click="handleOpenInExplorer" class="context-menu-item">
+          跳转到对应目录
         </li>
         <li @click="handleOpenTerminal" class="context-menu-item">
           在终端打开
@@ -35,15 +37,13 @@
         <li v-if="targetCategories.length > 0" class="context-menu-item submenu-parent">
           <div class="menu-item-content">
             复制到
-            <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+            <el-icon class="arrow-icon">
+              <ArrowRight />
+            </el-icon>
           </div>
           <ul class="context-submenu" style="max-height: 200px; overflow-y: auto;">
-            <li
-              v-for="cat in targetCategories"
-              :key="cat.id"
-              @click="handleCopyToCategory(cat.id)"
-              class="context-menu-item"
-            >
+            <li v-for="cat in targetCategories" :key="cat.id" @click="handleCopyToCategory(cat.id)"
+              class="context-menu-item">
               {{ cat.name }}
             </li>
           </ul>
@@ -55,7 +55,9 @@
       <li class="context-menu-item submenu-parent">
         <div class="menu-item-content">
           分类方式
-          <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+          <el-icon class="arrow-icon">
+            <ArrowRight />
+          </el-icon>
         </div>
         <ul class="context-submenu">
           <li @click="handleClassify('none')" class="context-menu-item" :class="{ active: classifyMethod === 'none' }">
@@ -70,7 +72,9 @@
       <li class="context-menu-item submenu-parent">
         <div class="menu-item-content">
           排序方式
-          <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+          <el-icon class="arrow-icon">
+            <ArrowRight />
+          </el-icon>
         </div>
         <ul class="context-submenu">
           <li @click="handleSort('name')" class="context-menu-item" :class="{ active: sortMethod === 'name' }">
@@ -80,14 +84,16 @@
               <Bottom v-else />
             </el-icon>
           </li>
-          <li @click="handleSort('openCount')" class="context-menu-item" :class="{ active: sortMethod === 'openCount' }">
+          <li @click="handleSort('openCount')" class="context-menu-item"
+            :class="{ active: sortMethod === 'openCount' }">
             <span>按打开次数排序</span>
             <el-icon v-if="sortMethod === 'openCount'" class="order-icon">
               <Top v-if="sortOrder === 'asc'" />
               <Bottom v-else />
             </el-icon>
           </li>
-          <li @click="handleSort('created_at')" class="context-menu-item" :class="{ active: sortMethod === 'created_at' }">
+          <li @click="handleSort('created_at')" class="context-menu-item"
+            :class="{ active: sortMethod === 'created_at' }">
             <span>按创建时间排序</span>
             <el-icon v-if="sortMethod === 'created_at'" class="order-icon">
               <Top v-if="sortOrder === 'asc'" />
@@ -102,11 +108,15 @@
       <li class="context-menu-item submenu-parent">
         <div class="menu-item-content">
           显示
-          <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+          <el-icon class="arrow-icon">
+            <ArrowRight />
+          </el-icon>
         </div>
         <ul class="context-submenu">
           <li @click="handleToggleDisplay('showFileName')" class="context-menu-item">
-            <el-icon class="check-icon"><Check v-if="showFileName" /></el-icon>
+            <el-icon class="check-icon">
+              <Check v-if="showFileName" />
+            </el-icon>
             <span>文件名称</span>
           </li>
         </ul>
@@ -182,7 +192,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation", "openTerminal", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory", "locateToCategory", "togglePin"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "openInExplorer", "openTerminal", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory", "locateToCategory", "togglePin"]);
 
 // 菜单元素引用
 const menuRef = ref(null);
@@ -251,6 +261,13 @@ const handleDelete = () => {
 const handleOpenLocation = () => {
   if (props.selectedFile) {
     emit("openLocation", props.selectedFile);
+    emit("hide");
+  }
+};
+
+const handleOpenInExplorer = () => {
+  if (props.selectedFile) {
+    emit("openInExplorer", props.selectedFile);
     emit("hide");
   }
 };
@@ -353,13 +370,15 @@ const handleCopyToCategory = (targetCategoryId) => {
 }
 
 .context-menu-item {
-  padding: 4px 12px; /* 减小内边距 */
+  padding: 4px 12px;
+  /* 减小内边距 */
   cursor: pointer;
   transition: background-color 0.2s ease;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px; /* 稍微减小字号 */
+  font-size: 13px;
+  /* 稍微减小字号 */
 }
 
 .context-menu-item:hover {
@@ -427,7 +446,7 @@ const handleCopyToCategory = (targetCategoryId) => {
   list-style: none;
 }
 
-.submenu-parent:hover > .context-submenu {
+.submenu-parent:hover>.context-submenu {
   display: block;
 }
 </style>

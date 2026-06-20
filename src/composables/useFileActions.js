@@ -6,20 +6,27 @@ import { calculateDirSizes, calculateDirSize } from '@/api/file'
 import {
   currentCategory, filesByCategory, customCategories,
   categoryHasSameFile, generateDisplayName, generateId, getFileIcon,
-  SPECIAL_CATEGORIES, getCurrentCategoryFiles,
+  SPECIAL_CATEGORIES, getCurrentCategoryFiles, dragTargetCategory,
   tauriListenersSet, setTauriListenersSet
 } from './useFileState'
 import { saveFiles } from './useFilePersistence'
 
 // --- File Operations ---
 
-const processFiles = async (fileList) => {
-  if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
-    return { addedCount: 0, existingCount: 0, error: 'cannot_add_to_special_category' };
+const processFiles = async (fileList, overrideTargetCategory = null) => {
+  let targetCategory = overrideTargetCategory || currentCategory.value;
+
+  // 如果在特殊分类（全部文件、资源管理器），且没有指定目标分类，则默认添加到第一个自定义分类
+  if (targetCategory === SPECIAL_CATEGORIES.ALL_FILES || targetCategory === SPECIAL_CATEGORIES.FILE_EXPLORER) {
+    if (customCategories.value.length > 0) {
+      targetCategory = customCategories.value[0].id;
+    } else {
+      return { addedCount: 0, existingCount: 0, error: 'cannot_add_to_special_category' };
+    }
   }
 
-  if (!filesByCategory.value[currentCategory.value]) {
-    filesByCategory.value[currentCategory.value] = []
+  if (!filesByCategory.value[targetCategory]) {
+    filesByCategory.value[targetCategory] = []
   }
 
   let addedCount = 0;
@@ -38,7 +45,7 @@ const processFiles = async (fileList) => {
         if (!fileInfo.icon || fileInfo.icon === '') {
           fileInfo.icon = await getFileIcon({ name: fileInfo.name });
         }
-        fileInfo.category = currentCategory.value;
+        fileInfo.category = targetCategory;
         fileInfo.displayName = fileInfo.displayName || generateDisplayName(fileInfo.name);
         fileInfo.notes = fileInfo.notes || '';
         fileInfo.isPinned = !!fileInfo.isPinned;
@@ -62,7 +69,7 @@ const processFiles = async (fileList) => {
         size: file.size,
         type: file.type,
         icon: await getFileIcon(file),
-        category: currentCategory.value,
+        category: targetCategory,
         createdAt: Date.now(),
         created_at: Date.now(),
         notes: '',
@@ -70,8 +77,8 @@ const processFiles = async (fileList) => {
       }
     }
 
-    if (!categoryHasSameFile(filesByCategory.value[currentCategory.value], fileInfo.path)) {
-      filesByCategory.value[currentCategory.value].push(fileInfo);
+    if (!categoryHasSameFile(filesByCategory.value[targetCategory], fileInfo.path)) {
+      filesByCategory.value[targetCategory].push(fileInfo);
       addedCount++;
     } else {
       existingCount++;
@@ -83,7 +90,7 @@ const processFiles = async (fileList) => {
     await saveFiles();
   }
 
-  return { addedCount, existingCount, failedCount };
+  return { addedCount, existingCount, failedCount, targetCategory };
 }
 
 const deleteFile = async (id) => {
@@ -196,23 +203,58 @@ const calculateSingleFolderSize = async (file) => {
 
 // --- Tauri Drag-Drop Listener ---
 
+// 根据原生拖放事件提供的物理坐标，命中测试出鼠标下方的目标分类。
+// dragDropEnabled 为 true 时，外部文件不会触发 DOM 的 dragover/drop 事件，
+// 因此必须用 position 反查 DOM，才能把文件投放到悬停的侧边栏分类。
+const resolveCategoryFromPosition = (position) => {
+  if (!position || typeof document === 'undefined') return null
+  const dpr = window.devicePixelRatio || 1
+  // Tauri 传来的是物理像素，elementFromPoint 需要 CSS 像素
+  const x = position.x / dpr
+  const y = position.y / dpr
+  const el = document.elementFromPoint(x, y)
+  if (!el) return null
+  const dropEl = el.closest('[data-drop-category]')
+  return dropEl ? dropEl.getAttribute('data-drop-category') : null
+}
+
 const setupTauriListeners = async () => {
   if (tauriListenersSet) return;
 
   if (window.__TAURI_INTERNALS__?.invoke) {
     setTauriListenersSet(true);
     console.log('Setting up Tauri drag-drop listener...')
+
+    // 外部文件拖入时实时高亮悬停的分类
+    await listen('tauri://drag-enter', (event) => {
+      dragTargetCategory.value = resolveCategoryFromPosition(event.payload?.position)
+    })
+    await listen('tauri://drag-over', (event) => {
+      dragTargetCategory.value = resolveCategoryFromPosition(event.payload?.position)
+    })
+    await listen('tauri://drag-leave', () => {
+      dragTargetCategory.value = null
+    })
+
     await listen('tauri://drag-drop', async (event) => {
-      const { paths } = event.payload
+      const { paths, position } = event.payload
       if (paths && paths.length > 0) {
-        if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
-          console.warn('Cannot add files to special category via drag-drop');
-          ElMessage.warning('不能直接向"全部文件"分类中添加文件')
-          return
+        // 优先使用落点命中的分类，其次是悬停期间记录的分类，最后回退到当前分类
+        let targetCategory = resolveCategoryFromPosition(position) || dragTargetCategory.value || currentCategory.value;
+
+        // 如果在特殊分类（全部文件、资源管理器），则默认添加到第一个自定义分类
+        if (targetCategory === SPECIAL_CATEGORIES.ALL_FILES || targetCategory === SPECIAL_CATEGORIES.FILE_EXPLORER) {
+          if (customCategories.value.length > 0) {
+            targetCategory = customCategories.value[0].id;
+          } else {
+            console.warn('No custom categories available to add files');
+            ElMessage.warning('请先创建一个分类再添加文件');
+            return;
+          }
         }
 
-        if (!filesByCategory.value[currentCategory.value]) {
-          filesByCategory.value[currentCategory.value] = []
+        if (!filesByCategory.value[targetCategory]) {
+          filesByCategory.value[targetCategory] = []
         }
 
         let addedCount = 0;
@@ -220,20 +262,20 @@ const setupTauriListeners = async () => {
         let existingCount = 0;
 
         for (const path of paths) {
-          if (!categoryHasSameFile(filesByCategory.value[currentCategory.value], path)) {
+          if (!categoryHasSameFile(filesByCategory.value[targetCategory], path)) {
             try {
               const fileInfo = await invoke('get_file_info', { path })
               fileInfo.id = generateId()
               if (!fileInfo.icon || fileInfo.icon === '') {
                 fileInfo.icon = await getFileIcon({ name: fileInfo.name })
               }
-              fileInfo.category = currentCategory.value
+              fileInfo.category = targetCategory
               fileInfo.displayName = fileInfo.displayName || generateDisplayName(fileInfo.name)
               fileInfo.createdAt = fileInfo.createdAt || Date.now()
               fileInfo.created_at = fileInfo.createdAt
               fileInfo.notes = fileInfo.notes || ''
               fileInfo.isPinned = !!fileInfo.isPinned
-              filesByCategory.value[currentCategory.value].push(fileInfo)
+              filesByCategory.value[targetCategory].push(fileInfo)
               addedCount++;
             } catch (error) {
               console.error(`Failed to process path ${path}:`, error)
@@ -246,10 +288,13 @@ const setupTauriListeners = async () => {
 
         if (addedCount > 0) {
           await saveFiles()
+          const targetCat = customCategories.value.find(c => c.id === targetCategory);
+          const catName = targetCat ? `「${targetCat.name}」` : '';
+
           if (failedCount === 0) {
-            ElMessage.success(`成功添加 ${addedCount} 个文件`)
+            ElMessage.success(`成功添加 ${addedCount} 个文件到 ${catName}`)
           } else {
-            ElMessage.success(`成功添加 ${addedCount} 个文件，但有 ${failedCount} 个文件添加失败`)
+            ElMessage.success(`成功添加 ${addedCount} 个文件到 ${catName}，但有 ${failedCount} 个文件添加失败`)
           }
         } else if (failedCount > 0) {
           ElMessage.error(`${failedCount} 个文件添加失败，请检查文件是否存在或权限是否足够`)
@@ -257,6 +302,7 @@ const setupTauriListeners = async () => {
           ElMessage.warning(`当前分类已存在此文件`)
         }
       }
+      dragTargetCategory.value = null
     })
   }
 }

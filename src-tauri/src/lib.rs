@@ -11,7 +11,9 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    // debug 构建下不会启用单实例插件，builder 不会被重新赋值，故抑制 unused_mut 警告
+    #[cfg_attr(debug_assertions, allow(unused_mut))]
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -19,13 +21,22 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
-        ))
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        ));
+
+    // 仅在发布版启用单实例；dev 下禁用，避免旧进程把新启动的进程"劫持"、
+    // 唤起旧窗口，导致 tauri.conf.json / Rust 改动看似不生效。
+    #[cfg(not(debug_assertions))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            log::warn!("[single-instance] 已有实例在运行，唤起现有窗口（新进程已退出）");
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
             }
-        }))
+        }));
+    }
+
+    builder
         .invoke_handler(tauri::generate_handler![
             commands::file::save_files_to_db,
             commands::file::load_files_from_db,
@@ -60,6 +71,13 @@ pub fn run() {
             commands::settings::load_settings_from_json,
         ])
         .setup(|app| {
+            // 启动横幅：每次「真正新建的进程」才会打印。
+            // 看不到这行 = 你启动的进程被 single-instance 拦截、唤起了旧窗口。
+            println!(
+                "[startup] OopsLauncher v{} 进程已启动（PID {}）",
+                env!("CARGO_PKG_VERSION"),
+                std::process::id()
+            );
             db::init_database(app.handle())?;
 
             if cfg!(debug_assertions) {
