@@ -19,6 +19,14 @@
             <span class="item-name">资源管理器</span>
           </div>
         </div>
+        <div class="menu-item special-item" :class="{
+          active: currentCategory === SPECIAL_CATEGORIES.START_MENU,
+          'is-refreshing': refreshingStartMenu
+        }" @click="handleMenuSelect(SPECIAL_CATEGORIES.START_MENU)">
+          <div class="item-content">
+            <span class="item-name">开始菜单</span>
+          </div>
+        </div>
       </div>
 
       <draggable v-model="allCategories" item-key="id" class="menu-items" animation="150" ghost-class="sortable-ghost"
@@ -83,7 +91,10 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(["categoryChange"]);
 
-const { allCategories, addCategory, deleteCategory, updateCategoryOrder, processFiles, SPECIAL_CATEGORIES, dragTargetCategory } = useFiles();
+const {
+  allCategories, addCategory, deleteCategory, updateCategoryOrder,
+  processFiles, SPECIAL_CATEGORIES, dragTargetCategory, refreshingStartMenu
+} = useFiles();
 const { registerMenu, unregisterMenu } = useContextMenu();
 
 const specialDragOver = ref(null);
@@ -356,6 +367,10 @@ onUnmounted(() => {
 .menu-item.special-item.active {
   background-color: #ececec;
   border-right: 3px solid #409eff;
+}
+
+.menu-item.is-refreshing {
+  border-right: 3px solid #f56c6c !important;
 }
 
 .menu-item.special-item.is-dragover {

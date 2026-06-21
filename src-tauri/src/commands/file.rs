@@ -77,3 +77,13 @@ pub fn get_file_icon(path: String) -> Result<String, AppError> {
     use std::path::Path;
     crate::icon::get_file_icon_base64(Path::new(&path)).map_err(|e| AppError::Other(e.to_string()))
 }
+
+#[tauri::command]
+pub async fn search_windows_index(query: String) -> Result<Vec<FileInfo>, AppError> {
+    services::file_service::search_windows_index(query)
+}
+
+#[tauri::command]
+pub fn scan_start_menu_programs(app: tauri::AppHandle) -> Result<Vec<FileInfo>, AppError> {
+    services::file_service::scan_start_menu_programs(&app)
+}

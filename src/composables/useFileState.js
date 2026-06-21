@@ -56,7 +56,8 @@ export const generateId = () => {
 // 特殊分类 ID
 export const SPECIAL_CATEGORIES = {
   ALL_FILES: 'all_files',
-  FILE_EXPLORER: 'file_explorer'
+  FILE_EXPLORER: 'file_explorer',
+  START_MENU: 'start_menu'
 }
 
 // Module-level singleton state
@@ -70,7 +71,7 @@ export const classifyMethod = ref('none')
 
 export const normalizeSortMethod = (val) => ['name', 'openCount', 'created_at'].includes(val) ? val : 'openCount'
 export const normalizeSortOrder = (val) => ['asc', 'desc'].includes(val) ? val : 'desc'
-export const normalizeClassifyMethod = (val) => ['none', 'type'].includes(val) ? val : 'none'
+export const normalizeClassifyMethod = (val) => ['none', 'type', 'letter'].includes(val) ? val : 'none'
 export const normalizeCategory = (val) => val || SPECIAL_CATEGORIES.ALL_FILES
 
 export const customCategories = ref([])
@@ -79,6 +80,7 @@ export const filesByCategory = ref({
 })
 export const searchQuery = ref('')
 export const showSearchOverlay = ref(false)
+export const refreshingStartMenu = ref(false)
 
 // Module-level flags
 export let hasLoaded = false
@@ -109,6 +111,19 @@ export const sortFiles = (files) => {
     if (classifyMethod.value === 'type') {
       result = getFileType(a).localeCompare(getFileType(b))
       if (result !== 0) return result
+    } else if (classifyMethod.value === 'letter') {
+      const getFirstLetter = (f) => {
+        const name = (f.displayName || f.name || '').trim()
+        const first = name.charAt(0).toUpperCase()
+        return /^[A-Z]$/.test(first) ? first : '#'
+      }
+      const aL = getFirstLetter(a)
+      const bL = getFirstLetter(b)
+      if (aL !== bL) {
+        if (aL === '#') return 1
+        if (bL === '#') return -1
+        return aL.localeCompare(bL)
+      }
     }
 
     if (sortMethod.value === 'openCount') {
@@ -124,10 +139,26 @@ export const sortFiles = (files) => {
 }
 
 export function getCurrentCategoryFiles() {
+  const filterUnwanted = (files) => {
+    return files.filter(file => {
+      if (file.category === SPECIAL_CATEGORIES.START_MENU || currentCategory.value === SPECIAL_CATEGORIES.START_MENU) {
+        const name = (file.displayName || file.name || '').toLowerCase();
+        const path = (file.path || '').toLowerCase();
+        return !name.includes('uninstall') && !name.includes('卸载') &&
+          !path.includes('uninstall') && !path.includes('卸载');
+      }
+      return true;
+    });
+  };
+
   if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES) {
-    const allFiles = Object.values(filesByCategory.value).flat()
+    const allFiles = Object.entries(filesByCategory.value)
+      .filter(([catId]) => catId !== SPECIAL_CATEGORIES.START_MENU)
+      .map(([_, files]) => files)
+      .flat()
     const uniqueFilesMap = new Map()
-    allFiles.forEach(file => {
+
+    filterUnwanted(allFiles).forEach(file => {
       if (
         !uniqueFilesMap.has(file.path) ||
         (!!file.isPinned && !uniqueFilesMap.get(file.path)?.isPinned) ||
@@ -141,7 +172,9 @@ export function getCurrentCategoryFiles() {
     })
     return Array.from(uniqueFilesMap.values())
   }
-  return filesByCategory.value[currentCategory.value] || []
+
+  const files = filesByCategory.value[currentCategory.value] || [];
+  return filterUnwanted(files);
 }
 
 // Computed properties
@@ -189,7 +222,7 @@ export const pinnedCurrentFiles = computed(() => {
 
 export const groupedCurrentFiles = computed(() => {
   const files = getCurrentCategoryFiles().filter(file => !file.isPinned)
-  if (classifyMethod.value !== 'type') {
+  if (classifyMethod.value === 'none') {
     return [{
       type: 'all',
       label: '全部',
@@ -198,26 +231,57 @@ export const groupedCurrentFiles = computed(() => {
   }
 
   const groupedMap = new Map()
-  files.forEach(file => {
-    const fileName = file.name || ''
-    const fileType = (file.type || (fileName.lastIndexOf('.') > -1 ? fileName.substring(fileName.lastIndexOf('.') + 1) : '') || 'null').toLowerCase()
-    if (!groupedMap.has(fileType)) {
-      groupedMap.set(fileType, [])
-    }
-    groupedMap.get(fileType).push(file)
-  })
 
-  return [...groupedMap.entries()]
-    .sort((a, b) => {
-      const countDiff = b[1].length - a[1].length
-      if (countDiff !== 0) return countDiff
-      return a[0].localeCompare(b[0])
+  if (classifyMethod.value === 'type') {
+    files.forEach(file => {
+      const fileName = file.name || ''
+      const fileType = (file.type || (fileName.lastIndexOf('.') > -1 ? fileName.substring(fileName.lastIndexOf('.') + 1) : '') || 'null').toLowerCase()
+      if (!groupedMap.has(fileType)) {
+        groupedMap.set(fileType, [])
+      }
+      groupedMap.get(fileType).push(file)
     })
-    .map(([type, groupFiles]) => ({
-      type,
-      label: type,
-      files: sortFiles(groupFiles)
-    }))
+
+    return [...groupedMap.entries()]
+      .sort((a, b) => {
+        const countDiff = b[1].length - a[1].length
+        if (countDiff !== 0) return countDiff
+        return a[0].localeCompare(b[0])
+      })
+      .map(([type, groupFiles]) => ({
+        type,
+        label: type,
+        files: sortFiles(groupFiles)
+      }))
+  }
+
+  if (classifyMethod.value === 'letter') {
+    files.forEach(file => {
+      const name = (file.displayName || file.name || '').trim()
+      let firstChar = name.charAt(0).toUpperCase()
+      if (!/^[A-Z]$/.test(firstChar)) {
+        firstChar = '#'
+      }
+      if (!groupedMap.has(firstChar)) {
+        groupedMap.set(firstChar, [])
+      }
+      groupedMap.get(firstChar).push(file)
+    })
+
+    return [...groupedMap.entries()]
+      .sort((a, b) => {
+        if (a[0] === '#') return 1
+        if (b[0] === '#') return -1
+        return a[0].localeCompare(b[0])
+      })
+      .map(([letter, groupFiles]) => ({
+        type: letter,
+        label: letter,
+        files: sortFiles(groupFiles)
+      }))
+  }
+
+  return []
 })
 
 export const allCategories = computed({

@@ -3,10 +3,10 @@ import { useSettingsStore } from '@/stores/settingsStore'
 
 export function useSettings() {
   const settingsStore = useSettingsStore()
-  const { settings } = storeToRefs(settingsStore)
+  const { settings, isInitializing } = storeToRefs(settingsStore)
   return {
     settings,
     loadSettings: settingsStore.loadSettings,
-    isInitializing: settingsStore.isInitializing
+    isInitializing
   }
 }

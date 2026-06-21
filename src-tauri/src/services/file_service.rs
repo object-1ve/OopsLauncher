@@ -184,6 +184,111 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
     Ok(results)
 }
 
+pub fn scan_start_menu_programs(_app: &tauri::AppHandle) -> Result<Vec<FileInfo>, AppError> {
+    let mut results = Vec::new();
+    let mut seen_paths = std::collections::HashSet::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        let start_menu_path = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs";
+        let p = Path::new(start_menu_path);
+        if p.exists() {
+            scan_dir_recursive(p, &mut results, &mut seen_paths)?;
+        }
+    }
+
+    Ok(results)
+}
+
+#[cfg(target_os = "windows")]
+fn scan_dir_recursive(
+    dir: &Path,
+    results: &mut Vec<FileInfo>,
+    seen_paths: &mut std::collections::HashSet<String>,
+) -> Result<(), AppError> {
+    if !dir.is_dir() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            scan_dir_recursive(&path, results, seen_paths)?;
+        } else if let Some(ext) = path.extension() {
+            if ext.to_string_lossy().to_lowercase() == "lnk" {
+                let path_str = path.to_string_lossy().to_string();
+
+                // 过滤包含 uninstall 或 卸载 的文件
+                let lower_path = path_str.to_lowercase();
+                if lower_path.contains("uninstall") || lower_path.contains("卸载") {
+                    continue;
+                }
+
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+
+                // 再次解析快捷方式以获取显示名称和目标
+                let target_path = resolve_shortcut(&path_str);
+
+                // 如果目标路径为空，或者是空的快捷方式，跳过
+                if target_path.is_empty() {
+                    continue;
+                }
+
+                // 检查目标是否存在且是文件
+                let target_p = Path::new(&target_path);
+                if !target_p.exists() || !target_p.is_file() {
+                    continue;
+                }
+
+                // 如果已经添加过相同目标，则跳过
+                if seen_paths.contains(&target_path) {
+                    continue;
+                }
+                seen_paths.insert(target_path.clone());
+
+                let display_name = if let Some(last_dot_idx) = name.rfind('.') {
+                    name[..last_dot_idx].to_string()
+                } else {
+                    name.clone()
+                };
+
+                // 获取基础信息和图标，避免使用 get_file_info 以免触发重型操作（如读取文本内容）
+                let target_p = Path::new(&target_path);
+                let icon = match get_file_icon_base64(target_p) {
+                    Ok(icon) => icon,
+                    Err(_) => "📦".to_string(), // 失败回退到 emoji
+                };
+                let size = fs::metadata(target_p).map(|m| m.len()).unwrap_or(0);
+
+                results.push(FileInfo {
+                    id: generate_id(),
+                    name: name.clone(),
+                    display_name,
+                    path: target_path,
+                    size,
+                    r#type: "exe".to_string(),
+                    icon,
+                    content: None,
+                    category: Some("start_menu".to_string()),
+                    open_count: Some(0),
+                    created_at: None,
+                    modified_at: None,
+                    notes: None,
+                    is_pinned: Some(false),
+                    dir_size_calculated: Some(true),
+                    is_reparse_point: Some(false),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 fn generate_id() -> String {
     use std::time::SystemTime;
     let now = SystemTime::now()
@@ -795,4 +900,60 @@ pub fn calculate_dir_size_single(path: String) -> Result<u64, AppError> {
         return Err(AppError::NotFound(format!("Not a directory: {}", path)));
     }
     Ok(get_dir_size(path_buf))
+}
+
+pub fn search_windows_index(query: String) -> Result<Vec<FileInfo>, AppError> {
+    let mut results = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+
+        let escaped_query = query.replace('\'', "''");
+        // 使用 PowerShell 通过 Search.CollatorDSO 查询 Windows Index
+        // 限制只搜索 .exe 和 .lnk
+        let sql = format!(
+            "SELECT TOP 50 System.ItemNameDisplay, System.ItemPathDisplay, System.ItemUrl FROM SystemIndex WHERE SCOPE='file:' AND (System.FileExtension = '.exe' OR System.FileExtension = '.lnk') AND (System.ItemNameDisplay LIKE '%{}%' OR System.ItemPathDisplay LIKE '%{}%')",
+            escaped_query, escaped_query
+        );
+
+        let ps_script = format!(
+            "$conn = New-Object -ComObject ADODB.Connection; \
+             $conn.Open(\"Provider=Search.CollatorDSO;Extended Properties='Application=Windows';\"); \
+             $rs = New-Object -ComObject ADODB.Recordset; \
+             $rs.Open(\"{}\", $conn); \
+             if (!$rs.EOF) {{ \
+                 while (!$rs.EOF) {{ \
+                     $name = $rs.Fields.Item(\"System.ItemNameDisplay\").Value; \
+                     $path = $rs.Fields.Item(\"System.ItemPathDisplay\").Value; \
+                     if ($path) {{ Write-Output \"$name|$path\" }}; \
+                     $rs.MoveNext(); \
+                 }} \
+             }}; \
+             $rs.Close(); $conn.Close();",
+            sql
+        );
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_script])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .output()?;
+
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let parts: Vec<&str> = line.split('|').collect();
+                if parts.len() >= 2 {
+                    let path = parts[1].to_string();
+
+                    // 获取文件信息
+                    if let Ok(info) = get_file_info(path) {
+                        results.push(info);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(results)
 }

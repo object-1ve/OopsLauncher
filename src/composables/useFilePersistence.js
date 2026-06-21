@@ -91,6 +91,17 @@ const saveFiles = async () => {
           if (!normalizedPath || seenCategoryPath.has(dedupeKey)) {
             continue
           }
+
+          // 过滤掉开始菜单中的卸载程序
+          if (categoryId === SPECIAL_CATEGORIES.START_MENU) {
+            const name = (file.displayName || file.display_name || file.name || '').toLowerCase();
+            const lowerPath = normalizedPath.toLowerCase();
+            if (name.includes('uninstall') || name.includes('卸载') ||
+              lowerPath.includes('uninstall') || lowerPath.includes('卸载')) {
+              continue;
+            }
+          }
+
           seenCategoryPath.add(dedupeKey)
 
           const createdAt = Number(file.createdAt ?? file.created_at ?? Date.now())
@@ -211,6 +222,9 @@ const loadFiles = async () => {
     const loaded = await invoke('load_files_from_db')
 
     const organizedFiles = {}
+
+    // 初始化特殊分类
+    organizedFiles[SPECIAL_CATEGORIES.START_MENU] = []
 
     customCategories.value.forEach(cat => {
       if (cat && cat.id) {

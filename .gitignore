@@ -26,6 +26,7 @@ dist-ssr
 .claude/
 .codegraph/
 .cursor/
+.dbg/
 CLAUDE.md
 AGENTS.md
 

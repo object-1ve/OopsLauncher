@@ -3,29 +3,19 @@
     <div v-if="showSearchOverlay" class="search-overlay" @mousedown.self="closeSearch">
       <div class="search-container">
         <div class="search-box">
-          <el-icon class="search-icon"><Search /></el-icon>
-          <input
-            ref="searchInput"
-            v-model="searchQuery"
-            class="search-input"
-            placeholder="搜索所有分类下的文件..."
-            @keyup.esc="closeSearch"
-            @keydown.down.prevent="moveDown"
-            @keydown.up.prevent="moveUp"
-            @keyup.enter="handleEnter"
-          />
+          <el-icon class="search-icon">
+            <Search />
+          </el-icon>
+          <input ref="searchInput" v-model="searchQuery" class="search-input" placeholder="搜索所有分类下的文件..."
+            @keyup.esc="closeSearch" @keydown.down.prevent="moveDown" @keydown.up.prevent="moveUp"
+            @keyup.enter="handleEnter" />
         </div>
-        
+
         <div v-if="searchQuery && globalSearchResults.length > 0" class="search-results">
-          <div 
-            v-for="(file, index) in globalSearchResults.slice(0, 15)" 
-            :key="file.id" 
-            class="result-item"
+          <div v-for="(file, index) in globalSearchResults.slice(0, 15)" :key="file.id" class="result-item"
             :class="{ active: selectedIndex === index, 'file-not-found': file.exists === false }"
-            @click="handleSelect(file)"
-            @mouseover="selectedIndex = index"
-            @contextmenu.prevent.stop="handleResultContextMenu($event, file)"
-          >
+            @click="handleSelect(file)" @mouseover="selectedIndex = index"
+            @contextmenu.prevent.stop="handleResultContextMenu($event, file)">
             <div class="item-icon">
               <img v-if="file.icon && file.icon.startsWith('data:')" :src="file.icon" alt="" />
               <span v-else>{{ file.icon || '📄' }}</span>
@@ -34,7 +24,8 @@
               <div class="item-name">{{ file.displayName || file.name }}</div>
               <div class="item-path">{{ file.path }}</div>
             </div>
-            <div class="item-category" v-if="getCategoryName(file.category)">
+            <div class="item-category" :class="{ 'is-start-menu': file.category === SPECIAL_CATEGORIES.START_MENU }"
+              v-if="getCategoryName(file.category)">
               {{ getCategoryName(file.category) }}
             </div>
             <div class="match-reason" v-if="file.matchReason">
@@ -45,11 +36,11 @@
             更多结果请缩小搜索范围...
           </div>
         </div>
-        
+
         <div v-else-if="searchQuery" class="no-results">
           未找到相关文件
         </div>
-        
+
         <div class="search-hints">
           <span class="hint"><b>ESC</b> 退出</span>
           <span class="hint"><b>↑↓</b> 选择</span>
@@ -58,13 +49,8 @@
       </div>
     </div>
   </transition>
-  <div
-    v-if="resultMenu.visible"
-    class="result-context-menu"
-    :style="{ left: `${resultMenu.x}px`, top: `${resultMenu.y}px` }"
-    @click.stop
-    @contextmenu.prevent
-  >
+  <div v-if="resultMenu.visible" class="result-context-menu"
+    :style="{ left: `${resultMenu.x}px`, top: `${resultMenu.y}px` }" @click.stop @contextmenu.prevent>
     <div class="result-context-item" @click="handleLocateFile">
       定位到此文件
     </div>
@@ -76,13 +62,14 @@ import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { useFiles } from '@/composables/useFiles'
 
-const { 
-  searchQuery, 
-  globalSearchResults, 
-  showSearchOverlay, 
+const {
+  searchQuery,
+  globalSearchResults,
+  showSearchOverlay,
   openFile,
   allCategories,
-  switchCategory
+  switchCategory,
+  SPECIAL_CATEGORIES
 } = useFiles()
 
 const searchInput = ref(null)
@@ -95,6 +82,7 @@ const resultMenu = ref({
 })
 
 const getCategoryName = (catId) => {
+  if (catId === SPECIAL_CATEGORIES.START_MENU) return '开始菜单'
   const cat = allCategories.value.find(c => c.id === catId)
   return cat ? cat.name : ''
 }
@@ -321,6 +309,11 @@ onUnmounted(() => {
   margin-left: 12px;
 }
 
+.item-category.is-start-menu {
+  background-color: #ecf5ff;
+  color: #409eff;
+}
+
 .match-reason {
   font-size: 10px;
   padding: 1px 5px;
@@ -368,10 +361,13 @@ onUnmounted(() => {
 }
 
 /* 动画 */
-.fade-enter-active, .fade-leave-active {
+.fade-enter-active,
+.fade-leave-active {
   transition: opacity 0.2s;
 }
-.fade-enter-from, .fade-leave-to {
+
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 

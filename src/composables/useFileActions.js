@@ -2,12 +2,12 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { ElMessage } from 'element-plus'
 import { isTauri } from '@/utils/env'
-import { calculateDirSizes, calculateDirSize } from '@/api/file'
+import { calculateDirSizes, calculateDirSize, getFileIcon as getNativeFileIcon } from '@/api/file'
 import {
   currentCategory, filesByCategory, customCategories,
   categoryHasSameFile, generateDisplayName, generateId, getFileIcon,
   SPECIAL_CATEGORIES, getCurrentCategoryFiles, dragTargetCategory,
-  tauriListenersSet, setTauriListenersSet
+  tauriListenersSet, setTauriListenersSet, refreshingStartMenu
 } from './useFileState'
 import { saveFiles } from './useFilePersistence'
 
@@ -16,8 +16,10 @@ import { saveFiles } from './useFilePersistence'
 const processFiles = async (fileList, overrideTargetCategory = null) => {
   let targetCategory = overrideTargetCategory || currentCategory.value;
 
-  // 如果在特殊分类（全部文件、资源管理器），且没有指定目标分类，则默认添加到第一个自定义分类
-  if (targetCategory === SPECIAL_CATEGORIES.ALL_FILES || targetCategory === SPECIAL_CATEGORIES.FILE_EXPLORER) {
+  // 如果在特殊分类（全部文件、资源管理器、开始菜单），且没有指定目标分类，则默认添加到第一个自定义分类
+  if (targetCategory === SPECIAL_CATEGORIES.ALL_FILES ||
+    targetCategory === SPECIAL_CATEGORIES.FILE_EXPLORER ||
+    targetCategory === SPECIAL_CATEGORIES.START_MENU) {
     if (customCategories.value.length > 0) {
       targetCategory = customCategories.value[0].id;
     } else {
@@ -242,8 +244,10 @@ const setupTauriListeners = async () => {
         // 优先使用落点命中的分类，其次是悬停期间记录的分类，最后回退到当前分类
         let targetCategory = resolveCategoryFromPosition(position) || dragTargetCategory.value || currentCategory.value;
 
-        // 如果在特殊分类（全部文件、资源管理器），则默认添加到第一个自定义分类
-        if (targetCategory === SPECIAL_CATEGORIES.ALL_FILES || targetCategory === SPECIAL_CATEGORIES.FILE_EXPLORER) {
+        // 如果在特殊分类（全部文件、资源管理器、开始菜单），则默认添加到第一个自定义分类
+        if (targetCategory === SPECIAL_CATEGORIES.ALL_FILES ||
+          targetCategory === SPECIAL_CATEGORIES.FILE_EXPLORER ||
+          targetCategory === SPECIAL_CATEGORIES.START_MENU) {
           if (customCategories.value.length > 0) {
             targetCategory = customCategories.value[0].id;
           } else {
@@ -406,6 +410,15 @@ const updateCategoryOrder = async (newOrder) => {
 
 const switchCategory = async (categoryId) => {
   currentCategory.value = categoryId
+
+  // 如果切换到开始菜单特殊分类，且当前没有数据，执行首次扫描
+  if (categoryId === SPECIAL_CATEGORIES.START_MENU) {
+    if (!filesByCategory.value[SPECIAL_CATEGORIES.START_MENU] || filesByCategory.value[SPECIAL_CATEGORIES.START_MENU].length === 0) {
+      await refreshStartMenuPrograms();
+    }
+    return
+  }
+
   if (categoryId !== SPECIAL_CATEGORIES.ALL_FILES && !filesByCategory.value[categoryId]) {
     filesByCategory.value[categoryId] = []
   }
@@ -429,11 +442,38 @@ const switchCategory = async (categoryId) => {
   }
 }
 
+// 刷新开始菜单程序
+const refreshStartMenuPrograms = async () => {
+  if (refreshingStartMenu.value) return;
+  
+  refreshingStartMenu.value = true;
+  const loadingMessage = ElMessage({
+    message: '正在扫描开始菜单...',
+    duration: 0,
+    type: 'info'
+  });
+
+  try {
+    const results = await invoke('scan_start_menu_programs')
+    filesByCategory.value[SPECIAL_CATEGORIES.START_MENU] = results
+    await saveFiles()
+    
+    loadingMessage.close();
+    ElMessage.success(`刷新成功，共发现 ${results.length} 个程序`);
+    return results
+  } catch (error) {
+    loadingMessage.close();
+    console.error('Failed to scan start menu:', error)
+    ElMessage.error('扫描开始菜单失败')
+  } finally {
+    refreshingStartMenu.value = false;
+  }
+}
+
 export {
   processFiles, deleteFile, openFile, copyFileToCategory, togglePinFile, calculateFolderSizes, calculateSingleFolderSize,
-  setupTauriListeners, addCategory, renameCategory, deleteCategory,
-  saveCategories, updateCategoryOrder, switchCategory,
-  getCurrentCategoryFiles
+  setupTauriListeners, addCategory, renameCategory, deleteCategory, saveCategories,
+  updateCategoryOrder, switchCategory, refreshStartMenuPrograms
 }
 
 export const useFileActions = () => ({
@@ -451,5 +491,6 @@ export const useFileActions = () => ({
   saveCategories,
   updateCategoryOrder,
   switchCategory,
+  refreshStartMenuPrograms,
   getCurrentCategoryFiles
 })

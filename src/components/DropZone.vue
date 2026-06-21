@@ -12,7 +12,7 @@
               @open="handleFileOpen" @delete="handleFileDelete" @contextmenu="handleFileContextMenu" />
           </div>
         </div>
-        <div v-if="classifyMethod === 'type'">
+        <div v-if="classifyMethod !== 'none'">
           <div v-for="group in groupedCurrentFiles" :key="group.type" class="group-section">
             <div class="group-title">{{ group.label }}</div>
             <div class="row-container" :class="settings.appearance.itemLayout">

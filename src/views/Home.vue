@@ -15,11 +15,12 @@
       :categories="allCategories"
       :showLocateToCategory="currentCategory === SPECIAL_CATEGORIES.ALL_FILES && !!contextMenu.selectedFile?.category"
       :showPinToggle="!!contextMenu.selectedFile?.category" :selectedFileIsPinned="!!contextMenu.selectedFile?.isPinned"
-      @delete="handleContextMenuDelete" @hide="hideContextMenu" @openLocation="handleOpenLocation"
-      @openInExplorer="handleOpenInExplorer" @openTerminal="handleOpenTerminal" @copyPath="handleCopyPath"
-      @openWith="handleOpenWith" @editInfo="handleEditInfo" @sort="handleSort" @classify="handleClassify"
-      @toggleDisplay="handleToggleDisplay" @copyToCategory="handleCopyToCategory"
-      @locateToCategory="handleLocateToCategory" @togglePin="handleTogglePin" />
+      :showRefreshStartMenu="currentCategory === SPECIAL_CATEGORIES.START_MENU" @delete="handleContextMenuDelete"
+      @hide="hideContextMenu" @openLocation="handleOpenLocation" @openInExplorer="handleOpenInExplorer"
+      @openTerminal="handleOpenTerminal" @copyPath="handleCopyPath" @openWith="handleOpenWith"
+      @editInfo="handleEditInfo" @sort="handleSort" @classify="handleClassify" @toggleDisplay="handleToggleDisplay"
+      @copyToCategory="handleCopyToCategory" @locateToCategory="handleLocateToCategory" @togglePin="handleTogglePin"
+      @refreshStartMenu="refreshStartMenuPrograms" />
 
     <!-- 文件信息编辑弹窗 -->
     <FileInfoDialog v-model:visible="fileInfoDialog.visible" :current-file="fileInfoDialog.currentFile"
@@ -61,7 +62,8 @@ const {
   copyFileToCategory,
   togglePinFile,
   explorerPath,
-  explorerHighlightPath
+  explorerHighlightPath,
+  refreshStartMenuPrograms
 } = useFiles()
 
 const { settings } = useSettings()
@@ -142,6 +144,13 @@ const hideContextMenu = () => {
 
 // 方法：处理右键菜单删除
 const handleContextMenuDelete = (fileId) => {
+  if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES ||
+    currentCategory.value === SPECIAL_CATEGORIES.FILE_EXPLORER ||
+    currentCategory.value === SPECIAL_CATEGORIES.START_MENU) {
+    ElMessage.warning('特殊分类中的项目不能直接删除')
+    hideContextMenu()
+    return
+  }
   deleteFile(fileId)
   hideContextMenu()
 }
@@ -235,6 +244,12 @@ const handleOpenWith = async (file) => {
 
 // 方法：处理文件信息编辑
 const handleEditInfo = (file) => {
+  if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES ||
+    currentCategory.value === SPECIAL_CATEGORIES.FILE_EXPLORER ||
+    currentCategory.value === SPECIAL_CATEGORIES.START_MENU) {
+    ElMessage.warning('特殊分类中的项目不支持编辑信息')
+    return
+  }
   fileInfoDialog.value = {
     visible: true,
     currentFile: file
@@ -304,6 +319,8 @@ const handleCopyToCategory = async ({ file, targetCategoryId }) => {
     ElMessage.success(`已复制到「${targetCat?.name || targetCategoryId}」`)
   } else if (result.reason === 'duplicate') {
     ElMessage.warning(`文件已存在于「${targetCat?.name || targetCategoryId}」中`)
+  } else if (result.reason === 'same_category') {
+    ElMessage.warning('不能添加到当前分类')
   } else if (result.reason === 'cannot_copy_to_special_category') {
     ElMessage.warning('不能直接向“全部文件”分类中复制文件')
   }
@@ -322,6 +339,12 @@ const handleLocateToCategory = (file) => {
 }
 
 const handleTogglePin = async (file) => {
+  if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES ||
+    currentCategory.value === SPECIAL_CATEGORIES.FILE_EXPLORER ||
+    currentCategory.value === SPECIAL_CATEGORIES.START_MENU) {
+    ElMessage.warning('特殊分类中的项目不支持置顶')
+    return
+  }
   const result = await togglePinFile(file)
   if (!result.success) {
     ElMessage.error('置顶操作失败')

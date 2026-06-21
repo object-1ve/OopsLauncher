@@ -97,6 +97,7 @@ const registerAppShortcut = async (key, handler, { showSuccess = false, name = '
   const shortcut = settings.value.shortcuts[key];
   if (!shortcut) return;
 
+  const initializing = isInitializing.value;
   try {
     try { await unregister(shortcut); } catch (e) { }
     await register(shortcut, async (event) => {
@@ -104,7 +105,7 @@ const registerAppShortcut = async (key, handler, { showSuccess = false, name = '
       await handler();
     });
     // 初始化阶段（watch 首次触发时 loadSettings 尚未完成）不显示成功提示
-    if (showSuccess && !isInitializing.value) {
+    if (showSuccess && !initializing) {
       ElMessage.success(`${name}快捷键已更新为: ${shortcut}`);
     }
   } catch (err) {
@@ -153,7 +154,8 @@ watch(
   async (newVal, oldVal) => {
     if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerShowHideShortcut(true);
-  }
+  },
+  { immediate: true }
 );
 
 watch(
@@ -161,7 +163,8 @@ watch(
   async (newVal, oldVal) => {
     if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerCopyTimeShortcut(true);
-  }
+  },
+  { immediate: true }
 );
 
 watch(
@@ -169,7 +172,8 @@ watch(
   async (newVal, oldVal) => {
     if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerTestNotificationShortcut(true);
-  }
+  },
+  { immediate: true }
 );
 
 // 监听透明度变化

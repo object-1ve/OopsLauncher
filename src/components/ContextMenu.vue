@@ -2,6 +2,14 @@
   <!-- 右键菜单 -->
   <div v-if="visible" class="context-menu" :style="menuStyle" ref="menuRef">
     <ul class="context-menu-list">
+      <!-- 开始菜单特殊操作 -->
+      <template v-if="showRefreshStartMenu">
+        <li @click="handleRefreshStartMenu" class="context-menu-item">
+          刷新程序列表
+        </li>
+        <li class="context-menu-divider"></li>
+      </template>
+
       <!-- 文件操作项 -->
       <template v-if="selectedFileId">
         <li @click="handleOpenLocation" class="context-menu-item">
@@ -65,6 +73,10 @@
           </li>
           <li @click="handleClassify('type')" class="context-menu-item" :class="{ active: classifyMethod === 'type' }">
             <span>按文件类型分类</span>
+          </li>
+          <li @click="handleClassify('letter')" class="context-menu-item"
+            :class="{ active: classifyMethod === 'letter' }">
+            <span>按首字母分类</span>
           </li>
         </ul>
       </li>
@@ -188,11 +200,15 @@ const props = defineProps({
   selectedFileIsPinned: {
     type: Boolean,
     default: false
+  },
+  showRefreshStartMenu: {
+    type: Boolean,
+    default: false
   }
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation", "openInExplorer", "openTerminal", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory", "locateToCategory", "togglePin"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "openInExplorer", "openTerminal", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory", "locateToCategory", "togglePin", "refreshStartMenu"]);
 
 // 菜单元素引用
 const menuRef = ref(null);
@@ -314,6 +330,11 @@ const handleTogglePin = () => {
     emit("togglePin", props.selectedFile);
     emit("hide");
   }
+};
+
+const handleRefreshStartMenu = () => {
+  emit("refreshStartMenu");
+  emit("hide");
 };
 
 // 方法：处理排序

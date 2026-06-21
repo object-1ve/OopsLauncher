@@ -1,12 +1,13 @@
-pub mod models;
-pub mod db;
-pub mod utils;
-pub mod icon;
-pub mod error;
-pub mod tray;
-pub mod services;
 pub mod commands;
+pub mod db;
+pub mod error;
+pub mod icon;
+pub mod models;
+pub mod services;
+pub mod tray;
+pub mod utils;
 
+#[cfg(not(debug_assertions))]
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -53,6 +54,8 @@ pub fn run() {
             commands::file::calculate_dir_sizes,
             commands::file::calculate_dir_size,
             commands::file::get_file_icon,
+            commands::file::search_windows_index,
+            commands::file::scan_start_menu_programs,
             commands::folder_size_task::start_folder_size_task,
             commands::category::save_categories_to_db,
             commands::category::load_categories_from_db,
