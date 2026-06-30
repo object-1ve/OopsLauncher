@@ -318,65 +318,70 @@ onUnmounted(() => {
 <style scoped>
 /* 侧边栏样式 */
 .sidebar-aside {
-  width: 150px;
-  /* 固定宽度 */
-  background-color: #fafafa;
+  width: var(--app-sidebar-width, 150px);
+  background-color: var(--app-sidebar-bg, #ffffff);
   display: flex;
   flex-direction: column;
   height: 100%;
-  /* 确保侧边栏占满高度 */
-
   user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
+  border-right: 1px solid var(--app-border, #e8eaed);
 }
 
 .sidebar-menu {
   flex: 1;
   overflow-y: auto;
-  /* 允许菜单内容滚动 */
   position: relative;
   user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  background-color: white;
 }
 
 .special-categories {
-  padding-bottom: 5px;
-  border-bottom: 1px solid #f0f0f0;
-  margin-bottom: 5px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--app-border-light, #f0f0f0);
 }
 
 .menu-item.special-item {
-  height: 40px;
+  height: 36px;
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 16px;
   cursor: pointer;
-  transition: all 0.2s;
-  color: #303133;
+  transition: all var(--app-transition, 0.2s);
+  color: var(--app-text-secondary, #606266);
+  font-size: 13px;
+  font-weight: 500;
+  position: relative;
 }
 
 .menu-item.special-item:hover {
-  background-color: #f0f0f0;
+  background-color: var(--app-hover, #f5f7fa);
+  color: var(--app-text-primary, #1a1a2e);
 }
 
 .menu-item.special-item.active {
-  background-color: #ececec;
-  border-right: 3px solid #409eff;
+  background-color: var(--app-active-bg, #ecf5ff);
+  color: var(--app-active-border, #409eff);
+  font-weight: 600;
+}
+
+.menu-item.special-item.active::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background-color: var(--app-active-border, #409eff);
+  border-radius: 3px 0 0 3px;
 }
 
 .menu-item.is-refreshing {
-  border-right: 3px solid #f56c6c !important;
+  color: #f56c6c !important;
 }
 
 .menu-item.special-item.is-dragover {
-  background-color: #ecf5ff;
-  border-right: 3px solid #409eff;
-  box-shadow: inset 0 0 0 1px #409eff;
+  background-color: var(--app-active-bg, #ecf5ff);
+  box-shadow: inset 0 0 0 1.5px var(--app-active-border, #409eff);
+  border-radius: var(--app-radius-sm, 6px);
 }
 
 .menu-item.special-item:active {
@@ -394,24 +399,18 @@ onUnmounted(() => {
 }
 
 .menu-items {
-  padding: 0;
+  padding: 8px 0;
   margin: 0;
   list-style: none;
   position: relative;
   z-index: 1;
   user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
 }
 
 .sidebar-item-container {
   position: relative;
   z-index: 1;
   user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
 }
 
 .menu-item {
@@ -419,9 +418,6 @@ onUnmounted(() => {
   z-index: 1;
   cursor: grab;
   user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
 }
 
 .menu-item:active {
@@ -430,49 +426,46 @@ onUnmounted(() => {
 
 .item-name {
   user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
 }
 
 .sortable-ghost {
-  opacity: 0.4;
-  background-color: #f0f7ff !important;
-  border: 1px dashed #409eff;
-  border-radius: 4px;
+  opacity: 0.3;
+  background-color: var(--app-active-bg, #ecf5ff) !important;
+  border: 1.5px dashed var(--app-active-border, #409eff);
+  border-radius: var(--app-radius-sm, 6px);
   position: relative;
   z-index: 10;
 }
 
 .sortable-drag {
-  opacity: 0.8;
+  opacity: 0.9;
   background-color: white !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border-radius: var(--app-radius-sm, 6px);
   position: relative;
   z-index: 100;
 }
 
 .sidebar-footer {
   padding: 10px 0;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--app-border-light, #f0f0f0);
 }
 
 .footer-item {
-  height: 40px;
-  padding: 0 20px 0 40px;
+  height: 36px;
+  padding: 0 16px 0 32px;
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
-  color: #606266;
+  font-size: 13px;
+  color: var(--app-text-secondary, #606266);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--app-transition, 0.2s);
 }
 
 .footer-item:hover {
-  background-color: #f0f0f0;
-  color: #409eff;
+  background-color: var(--app-hover, #f5f7fa);
+  color: var(--app-active-border, #409eff);
 }
 
 .footer-item .el-icon {
@@ -481,19 +474,21 @@ onUnmounted(() => {
 
 /* 分组样式 */
 .add-category-input {
-  padding: 5px 20px 5px 40px;
+  padding: 4px 16px 4px 32px;
 }
 
 /* 右键菜单样式 */
 .sidebar-context-menu {
   position: fixed;
   z-index: 1000;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
-  padding: 5px 0;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--app-border, #e8eaed);
+  border-radius: var(--app-radius-md, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  min-width: 140px;
+  padding: 4px;
 }
 
 .context-menu-list {
@@ -503,18 +498,20 @@ onUnmounted(() => {
 }
 
 .context-menu-item {
-  padding: 8px 12px;
+  padding: 7px 12px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all var(--app-transition, 0.2s);
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #303133;
+  color: var(--app-text-primary, #1a1a2e);
+  border-radius: var(--app-radius-sm, 6px);
 }
 
 .context-menu-item:hover {
-  color: #409eff;
+  background-color: var(--app-hover, #f5f7fa);
+  color: var(--app-active-border, #409eff);
 }
 
 .context-menu-item.delete:hover {
@@ -524,28 +521,20 @@ onUnmounted(() => {
 
 /* 滚动条样式 */
 .sidebar-menu::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .sidebar-menu::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.15);
 }
 
 .sidebar-menu::-webkit-scrollbar-track {
   background-color: transparent;
-}
-
-.sortable-ghost {
-  opacity: 0.4;
-  background-color: #f0f7ff !important;
-  border: 1px dashed #409eff;
-}
-
-.sortable-drag {
-  opacity: 0.8;
-  background-color: white !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* 响应式设计 */
@@ -557,7 +546,6 @@ onUnmounted(() => {
   .menu-title span,
   .menu-item {
     display: none;
-    /* 暂时隐藏文字，实际可能需要显示图标 */
   }
 }
 </style>

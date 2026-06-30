@@ -182,74 +182,83 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 9999;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 15vh;
+  padding-top: 12vh;
 }
 
 .search-container {
-  width: 600px;
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  width: 560px;
+  background-color: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .search-box {
   display: flex;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--app-border-light, #f0f0f0);
 }
 
 .search-icon {
-  font-size: 24px;
-  color: #909399;
-  margin-right: 16px;
+  font-size: 22px;
+  color: var(--app-text-muted, #909399);
+  margin-right: 14px;
+  flex-shrink: 0;
 }
 
 .search-input {
   flex: 1;
   border: none;
   outline: none;
-  font-size: 20px;
-  color: #303133;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--app-text-primary, #1a1a2e);
   background: transparent;
 }
 
 .search-input::placeholder {
-  color: #c0c4cc;
+  color: var(--app-text-muted, #909399);
+  font-weight: 400;
 }
 
 .search-results {
-  max-height: 450px;
+  max-height: 420px;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 6px;
 }
 
 .result-item {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  padding: 10px 14px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--app-transition, 0.2s);
+  border-radius: var(--app-radius-sm, 6px);
 }
 
 .result-item:hover {
-  background-color: #f8fbff;
+  background-color: var(--app-hover, #f5f7fa);
 }
 
 .result-item.active {
-  background-color: #f0f7ff;
+  background-color: var(--app-active-bg, #ecf5ff);
 }
 
 .result-item.file-not-found {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .result-item.file-not-found .item-name {
@@ -258,12 +267,12 @@ onUnmounted(() => {
 }
 
 .item-icon {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 16px;
+  margin-right: 14px;
   flex-shrink: 0;
 }
 
@@ -283,8 +292,8 @@ onUnmounted(() => {
 }
 
 .item-name {
-  font-size: 15px;
-  color: #303133;
+  font-size: 14px;
+  color: var(--app-text-primary, #1a1a2e);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -293,7 +302,7 @@ onUnmounted(() => {
 
 .item-path {
   font-size: 12px;
-  color: #909399;
+  color: var(--app-text-muted, #909399);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -302,68 +311,72 @@ onUnmounted(() => {
 
 .item-category {
   font-size: 11px;
-  padding: 2px 6px;
-  background-color: #f0f2f5;
-  color: #909399;
+  padding: 2px 8px;
+  background-color: var(--app-hover, #f5f7fa);
+  color: var(--app-text-muted, #909399);
   border-radius: 4px;
   margin-left: 12px;
+  flex-shrink: 0;
+  font-weight: 500;
 }
 
 .item-category.is-start-menu {
-  background-color: #ecf5ff;
-  color: #409eff;
+  background-color: var(--app-active-bg, #ecf5ff);
+  color: var(--app-active-border, #409eff);
 }
 
 .match-reason {
   font-size: 10px;
-  padding: 1px 5px;
+  padding: 2px 6px;
   background-color: #fef0f0;
   color: #f56c6c;
   border-radius: 4px;
   margin-left: 8px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .no-results {
   padding: 40px;
   text-align: center;
-  color: #909399;
-  font-size: 16px;
+  color: var(--app-text-muted, #909399);
+  font-size: 15px;
 }
 
 .results-footer {
   padding: 10px 20px;
   text-align: center;
   font-size: 12px;
-  color: #c0c4cc;
-  border-top: 1px solid #f9f9f9;
+  color: var(--app-text-muted, #909399);
+  border-top: 1px solid var(--app-border-light, #f0f0f0);
 }
 
 .search-hints {
-  padding: 12px 20px;
-  background-color: #fafafa;
+  padding: 10px 18px;
+  background-color: rgba(249, 250, 251, 0.8);
   display: flex;
-  gap: 20px;
-  border-top: 1px solid #f0f0f0;
+  gap: 16px;
+  border-top: 1px solid var(--app-border-light, #f0f0f0);
 }
 
 .hint {
   font-size: 11px;
-  color: #909399;
+  color: var(--app-text-muted, #909399);
 }
 
 .hint b {
-  color: #606266;
-  background-color: #eee;
-  padding: 1px 4px;
+  color: var(--app-text-secondary, #606266);
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 1px 5px;
   border-radius: 3px;
   margin-right: 2px;
+  font-weight: 600;
 }
 
 /* 动画 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s;
+  transition: opacity 0.2s ease;
 }
 
 .fade-enter-from,
@@ -371,25 +384,45 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+.fade-enter-active .search-container {
+  animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .result-context-menu {
   position: fixed;
   z-index: 10001;
-  background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--app-border, #e8eaed);
+  border-radius: var(--app-radius-md, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
   min-width: 140px;
-  padding: 4px 0;
+  padding: 4px;
 }
 
 .result-context-item {
   padding: 7px 12px;
   font-size: 13px;
-  color: #303133;
+  color: var(--app-text-primary, #1a1a2e);
   cursor: pointer;
+  border-radius: var(--app-radius-sm, 6px);
+  transition: all var(--app-transition, 0.2s);
 }
 
 .result-context-item:hover {
-  background-color: #f5f7fa;
+  background-color: var(--app-hover, #f5f7fa);
+  color: var(--app-active-border, #409eff);
 }
 </style>

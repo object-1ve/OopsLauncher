@@ -2,10 +2,7 @@
   <div class="titlebar" data-tauri-drag-region>
     <div class="titlebar-content">
       <div class="app-icon">
-        <!-- 这里可以放置应用图标 -->
-        <span class="icon-emoji"
-          ><img src="@/assets/icon.png" alt="图标" style="width: 24px; height: 24px"
-        /></span>
+        <img src="@/assets/icon.png" alt="OopsLauncher" />
       </div>
       <div class="app-title">OopsLauncher</div>
     </div>
@@ -32,7 +29,7 @@
 <script setup>
 import { ref, onMounted, nextTick } from "vue";
 import { Window } from "@tauri-apps/api/window";
-import { Minus, CopyDocument, FullScreen, Close, Setting, Search } from "@element-plus/icons-vue";
+import { Minus, CopyDocument, FullScreen, Setting, Search } from "@element-plus/icons-vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useFiles } from "@/composables/useFiles";
 import { isTauri } from "@/utils/env";
@@ -104,38 +101,39 @@ onMounted(async () => {
 
 <style scoped>
 .titlebar {
-  height: 32px;
+  height: var(--app-titlebar-height, 32px);
   user-select: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
   background-color: #fff;
-
+  border-bottom: 1px solid var(--app-border, #e8eaed);
+  flex-shrink: 0;
 }
 
 .titlebar-content {
   display: flex;
   align-items: center;
-  padding-left: 10px;
-  pointer-events: none; /* 让点击穿透到 drag-region */
+  padding-left: 12px;
+  pointer-events: none;
+  gap: 8px;
 }
 
 .app-icon {
-  margin-right: 8px;
   display: flex;
   align-items: center;
 }
 
-.icon-emoji {
-  margin-top: 3px;
-  align-items: center;
-  justify-content: center;
+.app-icon img {
+  width: 20px;
+  height: 20px;
 }
 
 .app-title {
   font-size: 12px;
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: var(--app-text-primary, #1a1a2e);
+  letter-spacing: 0.02em;
 }
 
 .titlebar-controls {
@@ -148,15 +146,21 @@ onMounted(async () => {
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  width: 46px;
+  width: 40px;
   height: 100%;
   cursor: pointer;
-  transition: background-color 0.2s;
-  color: #333;
+  transition: background-color var(--app-transition, 0.2s);
+  color: var(--app-text-secondary, #606266);
+  border: none;
+  background: none;
 }
 
 .titlebar-button:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: var(--app-hover, #f5f7fa);
+}
+
+.titlebar-button:active {
+  background-color: var(--app-border, #e8eaed);
 }
 
 .titlebar-button.close:hover {

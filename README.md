@@ -51,7 +51,7 @@ OopsLauncher 是一个基于 [Tauri](https://tauri.app/) 和 [Vue 3](https://vue
 
 ```bash
 # 安装前端依赖
-npm install
+pnpm install
 
 # 安装 Rust 依赖（通常在首次运行时自动处理，也可手动）
 cd src-tauri
@@ -61,13 +61,13 @@ cargo check
 ### 开发模式运行
 
 ```bash
-npm run tauri dev
+pnpm tauri dev
 ```
 
 ### 打包构建
 
 ```bash
-npm run tauri build
+pnpm tauri build
 ```
 
 构建产物将位于 `src-tauri/target/release/bundle` 目录下。

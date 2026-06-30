@@ -127,31 +127,45 @@ defineExpose({
 
 <style scoped>
 .menu-item {
-  min-height: 40px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 20px;
-  font-size: 14px;
-  color: #303133;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-text-secondary, #606266);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--app-transition, 0.2s);
+  position: relative;
 }
 
 .menu-item:hover {
-  background-color: #f0f0f0;
+  background-color: var(--app-hover, #f5f7fa);
+  color: var(--app-text-primary, #1a1a2e);
 }
 
 .menu-item.active {
-  background-color: #ececec;
-  border-right: 3px solid #409eff;
-  font-size: 14px;
+  background-color: var(--app-active-bg, #ecf5ff);
+  color: var(--app-active-border, #409eff);
+  font-weight: 600;
+}
+
+.menu-item.active::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background-color: var(--app-active-border, #409eff);
+  border-radius: 3px 0 0 3px;
 }
 
 .menu-item.is-dragover {
-  background-color: #ecf5ff;
-  border-right: 3px solid #409eff;
-  box-shadow: inset 0 0 0 1px #409eff;
+  background-color: var(--app-active-bg, #ecf5ff);
+  box-shadow: inset 0 0 0 1.5px var(--app-active-border, #409eff);
+  border-radius: var(--app-radius-sm, 6px);
 }
 
 .item-content {
@@ -163,7 +177,7 @@ defineExpose({
 }
 
 .edit-input {
-  margin-right: 10px;
+  margin-right: 8px;
 }
 
 .item-name {

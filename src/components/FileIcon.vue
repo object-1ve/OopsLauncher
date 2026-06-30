@@ -119,7 +119,7 @@ const handleContextMenu = (e) => {
   justify-content: flex-start;
   border-radius: v-bind("settings.appearance.css.borderRadius");
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--app-transition, 0.2s);
   margin: v-bind("settings.appearance.css.itemMargin");
   padding: calc(v-bind("settings.appearance.css.itemPadding") / 2);
 }
@@ -133,10 +133,15 @@ const handleContextMenu = (e) => {
 .icon-item:hover {
   background-color: v-bind("settings.appearance.css.hoverColor");
   opacity: 1;
+  transform: translateY(-1px);
+}
+
+.icon-item:active {
+  transform: translateY(0);
 }
 
 .icon-item.file-not-found {
-  opacity: 0.5;
+  opacity: 0.4;
   filter: grayscale(1);
 }
 
@@ -146,9 +151,21 @@ const handleContextMenu = (e) => {
 }
 
 .icon-item.locating-highlight {
-  outline: 2px solid #409eff;
+  outline: 2px solid var(--app-active-border, #409eff);
   outline-offset: -2px;
-  background-color: rgba(64, 158, 255, 0.12);
+  background-color: rgba(64, 158, 255, 0.1);
+  animation: pulse-highlight 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    outline-color: var(--app-active-border, #409eff);
+    background-color: rgba(64, 158, 255, 0.1);
+  }
+  50% {
+    outline-color: rgba(64, 158, 255, 0.6);
+    background-color: rgba(64, 158, 255, 0.06);
+  }
 }
 
 .icon-wrapper {
@@ -167,8 +184,8 @@ const handleContextMenu = (e) => {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background-color: transparent; /* 确保背景透明 */
-  mix-blend-mode: multiply; /* 可选：如果是白色背景的jpg，可以尝试混合 */
+  background-color: transparent;
+  mix-blend-mode: multiply;
 }
 
 .file-icon-emoji {

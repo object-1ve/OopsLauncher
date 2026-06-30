@@ -27,13 +27,13 @@ const { currentCategory, switchCategory } = useFiles();
   width: 100%;
   display: flex;
   flex-direction: column;
-  border: 1px solid #dcdfe6;
   box-sizing: border-box;
+  background-color: var(--app-bg, #f5f7fa);
 }
 
 .basic-layout {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: var(--app-sidebar-width, 150px) 1fr;
   flex: 1;
   width: 100%;
   overflow: hidden;

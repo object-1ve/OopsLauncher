@@ -1188,6 +1188,8 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
   min-width: 100px;
   list-style: none;
   z-index: 1001;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .context-menu-item.has-submenu:hover>.submenu {

@@ -102,7 +102,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        if name.starts_with('$') || name.starts_with('.') {
+        if name.starts_with('$') {
             continue;
         }
 

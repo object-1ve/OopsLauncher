@@ -375,13 +375,15 @@ const handleCopyToCategory = (targetCategoryId) => {
   left: 0;
   top: 0;
   z-index: 1000;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
-  padding: 5px 0;
-  transition: all 0.2s ease;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--app-border, #e8eaed);
+  border-radius: var(--app-radius-md, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  min-width: 160px;
+  padding: 4px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .context-menu-list {
@@ -391,39 +393,42 @@ const handleCopyToCategory = (targetCategoryId) => {
 }
 
 .context-menu-item {
-  padding: 4px 12px;
-  /* 减小内边距 */
+  padding: 6px 12px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all var(--app-transition, 0.2s);
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  /* 稍微减小字号 */
+  color: var(--app-text-primary, #1a1a2e);
+  border-radius: var(--app-radius-sm, 6px);
 }
 
 .context-menu-item:hover {
-  background-color: #f5f5f5;
+  background-color: var(--app-hover, #f5f7fa);
+  color: var(--app-active-border, #409eff);
 }
 
 .context-menu-item.active {
-  color: #409eff;
-  background-color: #ecf5ff;
+  color: var(--app-active-border, #409eff);
+  background-color: var(--app-active-bg, #ecf5ff);
 }
 
 .context-menu-label {
   padding: 4px 12px;
   font-size: 11px;
-  color: #999;
-  font-weight: bold;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--app-text-muted, #909399);
+  font-weight: 600;
+  border-bottom: 1px solid var(--app-border-light, #f0f0f0);
   margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .context-menu-divider {
   height: 1px;
-  background-color: #f0f0f0;
-  margin: 4px 0;
+  background-color: var(--app-border-light, #f0f0f0);
+  margin: 4px 8px;
 }
 
 .submenu-parent {
@@ -440,7 +445,7 @@ const handleCopyToCategory = (targetCategoryId) => {
 .arrow-icon {
   margin-left: auto;
   font-size: 12px;
-  color: #999;
+  color: var(--app-text-muted, #909399);
 }
 
 .order-icon {
@@ -456,14 +461,16 @@ const handleCopyToCategory = (targetCategoryId) => {
 .context-submenu {
   position: absolute;
   left: 100%;
-  top: -5px;
+  top: -4px;
   display: none;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  min-width: 140px;
-  padding: 5px 0;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--app-border, #e8eaed);
+  border-radius: var(--app-radius-md, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  min-width: 160px;
+  padding: 4px;
   list-style: none;
 }
 

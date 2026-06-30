@@ -6,7 +6,7 @@
       <!-- 图标展示区域 -->
       <div class="icons-container" v-if="pinnedCurrentFiles.length > 0 || currentFiles.length > 0">
         <div v-if="pinnedCurrentFiles.length > 0" class="group-section pinned-section">
-          <div class="group-title">置顶</div>
+          <div class="group-title">📌 置顶</div>
           <div class="row-container" :class="settings.appearance.itemLayout">
             <FileIcon v-for="file in pinnedCurrentFiles" :key="file.id" :file="file" class="file-icon-item"
               @open="handleFileOpen" @delete="handleFileDelete" @contextmenu="handleFileContextMenu" />
@@ -26,6 +26,22 @@
             @open="handleFileOpen" @delete="handleFileDelete" @contextmenu="handleFileContextMenu" />
         </div>
       </div>
+
+      <!-- 空状态 -->
+      <div v-else class="empty-state">
+        <div class="empty-icon">📂</div>
+        <div class="empty-title">暂无文件</div>
+        <div class="empty-hint">拖拽文件到此处，或右键添加</div>
+      </div>
+
+      <!-- 拖拽覆盖层 -->
+      <div v-if="isDragOver" class="dragover-overlay">
+        <div class="dragover-content">
+          <div class="dragover-icon">📥</div>
+          <div class="dragover-text">释放以添加文件</div>
+        </div>
+      </div>
+
       <!-- 隐藏的文件输入 -->
       <input ref="fileInput" type="file" multiple class="file-input" tabindex="-1" @change="handleFileSelect" />
     </div>
@@ -125,16 +141,11 @@ const handleEmptyContextMenu = (e) => {
 
 <style scoped>
 .drop-zone-main {
-  padding: 0px 0px 30px 0px;
-  /* 移除外层 padding */
+  padding: 0;
   height: 100%;
-  /* 继承父容器高度 */
   overflow: hidden;
 }
 
-/* .row-container{
-  margin: 2px;
-} */
 .file-icon-item {
   margin: 2px;
 }
@@ -142,30 +153,26 @@ const handleEmptyContextMenu = (e) => {
 /* 拖拽区域样式 */
 .drop-zone {
   height: 100%;
-  transition: all 0.3s ease;
+  transition: all var(--app-transition, 0.2s);
   padding: 0;
-  /* 确保无内边距 */
+  position: relative;
 }
 
 .drop-zone.dragover {
-  background-color: rgba(64, 158, 255, 0.05);
-  border-color: rgba(64, 158, 255, 0.05);
-  border-style: dashed;
+  background-color: rgba(64, 158, 255, 0.02);
 }
 
 /* 图标容器样式 */
 .icons-container {
   height: 100%;
   overflow-y: auto;
-  padding: 10px 0px 10px 10px;
-  /* 增加左右内边距 */
+  padding: 8px 8px 20px 8px;
 }
 
 .row-container {
   display: flex;
   flex-wrap: wrap;
   gap: 0;
-  /* 移除 flex gap */
 }
 
 .row-container.list {
@@ -173,13 +180,16 @@ const handleEmptyContextMenu = (e) => {
 }
 
 .group-section {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .group-title {
-  font-size: 12px;
-  color: #909399;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-text-muted, #909399);
   padding: 0 4px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .pinned-section .group-title {
@@ -189,21 +199,83 @@ const handleEmptyContextMenu = (e) => {
 /* 图标项样式覆盖 */
 .file-icon-item {
   margin: 0;
-  /* 上 右 下 左 */
 }
 
 .list .file-icon-item {
   margin: 0 0 2px 0;
 }
 
+/* 空状态样式 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 4px;
+  opacity: 0.6;
+}
+
+.empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--app-text-secondary, #606266);
+}
+
+.empty-hint {
+  font-size: 13px;
+  color: var(--app-text-muted, #909399);
+}
+
+/* 拖拽覆盖层 */
+.dragover-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(64, 158, 255, 0.06);
+  border: 2px dashed rgba(64, 158, 255, 0.4);
+  border-radius: var(--app-radius-md, 8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+  margin: 4px;
+}
+
+.dragover-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dragover-icon {
+  font-size: 36px;
+}
+
+.dragover-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-active-border, #409eff);
+}
+
 /* 滚动条美化 */
 .icons-container::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .icons-container::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+}
+
+.icons-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.15);
 }
 
 .icons-container::-webkit-scrollbar-track {

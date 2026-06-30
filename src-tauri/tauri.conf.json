@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "OopsLauncher",
-  "version": "0.4.13",
+  "version": "0.4.15",
   "identifier": "com.oopslauncher.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5175",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
   },
   "app": {
     "windows": [

@@ -28,6 +28,27 @@ body {
   width: 100%;
 }
 
+/* ── Main Window Design Tokens ── */
+:root {
+  --app-bg: #f5f7fa;
+  --app-sidebar-bg: #ffffff;
+  --app-sidebar-width: 150px;
+  --app-titlebar-height: 32px;
+  --app-text-primary: #1a1a2e;
+  --app-text-secondary: #606266;
+  --app-text-muted: #909399;
+  --app-border: #e8eaed;
+  --app-border-light: #f0f0f0;
+  --app-hover: #f5f7fa;
+  --app-active-bg: #ecf5ff;
+  --app-active-border: #409eff;
+  --app-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --app-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --app-radius-sm: 6px;
+  --app-radius-md: 8px;
+  --app-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* ── Settings UI Design Tokens ── */
 :root {
   --settings-bg: #f4f5f9;
