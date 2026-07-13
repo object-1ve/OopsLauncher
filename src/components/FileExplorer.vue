@@ -15,7 +15,41 @@
           </el-button>
         </el-button-group>
 
+        <el-button-group size="small">
+          <el-button @click="handleOpenInTerminal" title="在终端中打开">
+            <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="18" rx="2" />
+              <polyline points="7 8 11 12 7 16" />
+              <line x1="13" y1="16" x2="17" y2="16" />
+            </svg>
+          </el-button>
+          <el-button @click="handleOpenInExplorer" title="在资源管理器中打开">
+            <el-icon>
+              <FolderOpened />
+            </el-icon>
+          </el-button>
+        </el-button-group>
+
+        <el-button
+          size="small"
+          :type="isCurrentPathFavorite ? 'warning' : 'default'"
+          @click="toggleFavoriteCurrentPath"
+          :title="isCurrentPathFavorite ? '取消收藏' : '收藏当前目录'"
+          class="favorite-toggle-btn"
+        >
+          <el-icon>
+            <StarFilled v-if="isCurrentPathFavorite" />
+            <Star v-else />
+          </el-icon>
+        </el-button>
+
         <div class="path-display" @dblclick="startEditingPath">
+          <button class="path-expand-btn" @click.stop="toggleFavoritesRow" :title="favoritesExpanded ? '收起收藏' : '展开收藏'">
+            <el-icon>
+              <CaretBottom v-if="!favoritesExpanded" />
+              <CaretTop v-else />
+            </el-icon>
+          </button>
           <template v-if="!isEditingPath">
             <el-breadcrumb separator="/">
               <el-breadcrumb-item @click.stop="goHome">此电脑</el-breadcrumb-item>
@@ -30,16 +64,42 @@
           </template>
         </div>
       </div>
+
+      <!-- 收藏展开行 -->
+      <div v-if="favoritesExpanded" ref="favoritesBarRef" class="favorites-bar">
+        <div v-if="favorites.length === 0" class="favorites-bar-empty">暂无收藏的路径</div>
+        <div
+          v-for="fav in favorites"
+          :key="fav.id"
+          class="favorites-bar-item"
+          @click="jumpToFavorite(fav)"
+          :title="fav.path"
+        >
+          <el-icon class="fav-star-icon"><StarFilled /></el-icon>
+          <span class="fav-bar-name">{{ fav.name }}</span>
+          <span class="fav-bar-path">{{ fav.path }}</span>
+          <span class="fav-bar-count" v-if="fav.openCount">×{{ fav.openCount }}</span>
+          <el-button
+            text
+            size="small"
+            class="fav-remove-btn"
+            @click.stop="handleRemoveFavorite(fav)"
+            title="移除收藏"
+          >
+            <el-icon><Delete /></el-icon>
+          </el-button>
+        </div>
+      </div>
     </div>
 
     <div class="explorer-content" ref="explorerContentRef" v-loading="loading" @scroll="handleScroll"
       @contextmenu.prevent="handleEmptyAreaContextMenu">
-      <div v-if="files.length === 0 && !loading" class="empty-state">
+      <div v-if="files.length === 0 && !loading && !creatingItem.active" class="empty-state">
         <el-empty description="此文件夹为空" />
       </div>
 
       <!-- 网格视图 -->
-      <div v-if="viewMode === 'grid'" class="file-grid-viewport" :style="{ height: virtualGrid.totalHeight + 'px' }">
+      <div v-if="viewMode === 'grid' && files.length > 0" class="file-grid-viewport" :style="{ height: virtualGrid.totalHeight + 'px' }">
         <div class="file-grid" :style="{ transform: `translateY(${virtualGrid.startRow * GRID_ITEM_HEIGHT}px)` }">
           <el-tooltip v-for="file in virtualGrid.items" :key="file.path" effect="light" placement="right"
             :show-after="500">
@@ -67,7 +127,7 @@
               'is-selected': selectedFile?.path === file.path,
               'is-reparse-point': file.isReparsePoint,
               'is-highlighted': explorerHighlightPath === file.path
-            }" draggable="true" @dragstart="handleFileDragStart($event, file)" @click.stop="handleItemClick(file)"
+            }" draggable="true" @dragstart="handleFileDragStart($event, file)" @click.stop="selectedFile = file; hideContextMenu()" @dblclick.stop="handleItemClick(file)"
               @contextmenu.stop.prevent="handleContextMenu($event, file)">
               <div class="file-icon-wrapper">
                 <template v-if="file.icon">
@@ -87,7 +147,7 @@
       </div>
 
       <!-- 列表视图 -->
-      <div v-else-if="viewMode === 'list'" class="file-list-viewport"
+      <div v-else-if="viewMode === 'list' && files.length > 0" class="file-list-viewport"
         :style="{ height: virtualList.totalHeight + LIST_ITEM_HEIGHT + 'px' }">
         <div class="file-list-header">
           <div class="col-name sortable" @click="handleSort('name')">
@@ -117,7 +177,7 @@
             'is-selected': selectedFile?.path === file.path,
             'is-reparse-point': file.isReparsePoint,
             'is-highlighted': explorerHighlightPath === file.path
-          }" draggable="true" @dragstart="handleFileDragStart($event, file)" @click.stop="handleItemClick(file)"
+          }" draggable="true" @dragstart="handleFileDragStart($event, file)" @click.stop="selectedFile = file; hideContextMenu()" @dblclick.stop="handleItemClick(file)"
             @contextmenu.stop.prevent="handleContextMenu($event, file)">
             <div class="col-name">
               <template v-if="file.icon">
@@ -148,24 +208,64 @@
           </div>
         </div>
       </div>
+
+      <!-- 新建文件/文件夹内联输入 -->
+      <div v-if="creatingItem.active" class="creating-item-wrapper">
+        <div class="creating-item-icon">{{ creatingItem.type === 'folder' ? '📁' : '📄' }}</div>
+        <input
+          ref="creatingInputRef"
+          v-model="creatingItem.name"
+          class="creating-item-text-input"
+          @keyup.enter="confirmCreate"
+          @keyup.escape="cancelCreate"
+          @blur="confirmCreate"
+        />
+      </div>
     </div>
 
     <!-- 资源管理器右键菜单 -->
     <div v-if="explorerMenu.visible" ref="contextMenuRef" class="explorer-context-menu" :style="{
       left: explorerMenu.x + 'px',
       top: explorerMenu.y + 'px',
-    }">
+    }" @click.stop>
       <ul class="context-menu-list">
         <template v-if="explorerMenu.file">
           <li class="context-menu-item" @click="handleOpen(explorerMenu.file)">
             打开
           </li>
           <li class="context-menu-item" @click="handleOpenFileLocation(explorerMenu.file)">
-            打开文件所在位置
+            窗口打开
           </li>
+          <li class="context-menu-item" @click="handleOpenWith(explorerMenu.file)">
+            打开方式
+          </li>
+          <template v-if="explorerMenu.file.type === 'directory'">
+            <li class="context-menu-divider"></li>
+            <li class="context-menu-item has-submenu">
+              <div class="menu-item-content">
+                新建
+                <el-icon class="arrow-icon">
+                  <ArrowRight />
+                </el-icon>
+              </div>
+              <ul class="submenu" :class="{ 'submenu-left': isMenuOnRight }">
+                <li class="context-menu-item" @click="handleStartCreate('file', explorerMenu.file.path)">
+                  新建文件
+                </li>
+                <li class="context-menu-item" @click="handleStartCreate('folder', explorerMenu.file.path)">
+                  新建文件夹
+                </li>
+              </ul>
+            </li>
+          </template>
           <li class="context-menu-divider"></li>
           <li class="context-menu-item has-submenu">
-            添加到分类
+            <div class="menu-item-content">
+              添加到分类
+              <el-icon class="arrow-icon">
+                <ArrowRight />
+              </el-icon>
+            </div>
             <ul class="submenu" :class="{ 'submenu-left': isMenuOnRight }">
               <li v-for="cat in allCategories" :key="cat.id" class="context-menu-item"
                 @click="handleAddToCategory(explorerMenu.file, cat.id)">
@@ -194,7 +294,29 @@
         </template>
         <template v-else>
           <li class="context-menu-item has-submenu">
-            展示方式
+            <div class="menu-item-content">
+              新建
+              <el-icon class="arrow-icon">
+                <ArrowRight />
+              </el-icon>
+            </div>
+            <ul class="submenu" :class="{ 'submenu-left': isMenuOnRight }">
+              <li class="context-menu-item" @click="handleStartCreate('file')">
+                新建文件
+              </li>
+              <li class="context-menu-item" @click="handleStartCreate('folder')">
+                新建文件夹
+              </li>
+            </ul>
+          </li>
+          <li class="context-menu-divider"></li>
+          <li class="context-menu-item has-submenu">
+            <div class="menu-item-content">
+              展示方式
+              <el-icon class="arrow-icon">
+                <ArrowRight />
+              </el-icon>
+            </div>
             <ul class="submenu" :class="{ 'submenu-left': isMenuOnRight }">
               <li class="context-menu-item" :class="{ active: viewMode === 'grid' }" @click="viewMode = 'grid'">
                 大图标
@@ -223,11 +345,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { ArrowLeft, HomeFilled, Loading, CaretTop, CaretBottom } from '@element-plus/icons-vue';
+import { ArrowLeft, ArrowRight, HomeFilled, Loading, CaretTop, CaretBottom, FolderOpened, Star, StarFilled, Delete } from '@element-plus/icons-vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useFiles } from '@/composables/useFiles';
-import { startFolderSizeTask, getFileIcon, openFileLocation } from '@/api/file';
+import { startFolderSizeTask, getFileIcon, openFileLocation, addFavorite, removeFavorite, getFavorites, isFavorite, incrementOpenCount } from '@/api/file';
 import { ElMessage } from 'element-plus';
 
 const { explorerPath, explorerHighlightPath, allCategories, processFiles } = useFiles();
@@ -450,6 +572,10 @@ const selectedFile = ref(null);
 const activeFolderSizeTaskId = ref('');
 let highlightTimeout = null;
 
+// --- 新建文件/文件夹状态 ---
+const creatingItem = ref({ active: false, type: '', name: '', parentDir: '' });
+const creatingInputRef = ref(null);
+
 const isMenuOnRight = computed(() => {
   return explorerMenu.value.x > window.innerWidth / 2;
 });
@@ -553,7 +679,6 @@ const registerFolderSizeTaskListeners = async () => {
 };
 
 const handleItemClick = (file) => {
-  selectedFile.value = file;
   if (file.type === 'directory') {
     currentPath.value = file.path;
     loadDirectory(file.path);
@@ -574,6 +699,80 @@ const goBack = () => {
 const goHome = () => {
   currentPath.value = '';
   loadDirectory('');
+};
+
+const handleOpenInExplorer = async () => {
+  if (!currentPath.value) return;
+  try {
+    await invoke('open_path', { path: currentPath.value });
+  } catch (error) {
+    console.error('Failed to open in explorer:', error);
+    ElMessage.error(`打开资源管理器失败: ${error}`);
+  }
+};
+
+const handleOpenInTerminal = async () => {
+  if (!currentPath.value) return;
+  try {
+    await invoke('open_terminal', { path: currentPath.value });
+  } catch (error) {
+    console.error('Failed to open in terminal:', error);
+    ElMessage.error(`打开终端失败: ${error}`);
+  }
+};
+
+// --- 收藏功能 ---
+const favorites = ref([]);
+const favoritesExpanded = ref(false);
+const favoritesBarRef = ref(null); // 引用收藏夹菜单元素
+
+const isCurrentPathFavorite = computed(() => {
+  return favorites.value.some(f => f.path === currentPath.value);
+});
+
+const loadFavorites = async () => {
+  try {
+    favorites.value = await getFavorites();
+  } catch (error) {
+    console.error('Failed to load favorites:', error);
+  }
+};
+
+const toggleFavoriteCurrentPath = async () => {
+  if (!currentPath.value) return;
+  try {
+    if (isCurrentPathFavorite.value) {
+      await removeFavorite(currentPath.value);
+    } else {
+      await addFavorite(currentPath.value);
+    }
+    await loadFavorites();
+  } catch (error) {
+    console.error('Failed to toggle favorite:', error);
+    ElMessage.error(`操作收藏失败: ${error}`);
+  }
+};
+
+const toggleFavoritesRow = () => {
+  favoritesExpanded.value = !favoritesExpanded.value;
+};
+
+const jumpToFavorite = (fav) => {
+  favoritesExpanded.value = false;
+  currentPath.value = fav.path;
+  loadDirectory(fav.path);
+  incrementOpenCount(fav.path).then(() => loadFavorites()).catch(() => {});
+};
+
+
+const handleRemoveFavorite = async (fav) => {
+  try {
+    await removeFavorite(fav.path);
+    await loadFavorites();
+  } catch (error) {
+    console.error('Failed to remove favorite:', error);
+    ElMessage.error(`移除收藏失败: ${error}`);
+  }
 };
 
 const navigateToPart = (index) => {
@@ -664,7 +863,18 @@ const handleOpenFileLocation = async (file) => {
     await openFileLocation(file.path);
   } catch (error) {
     console.error('Failed to open file location:', error);
-    ElMessage.error(`打开文件所在位置失败: ${error}`);
+    ElMessage.error(`窗口打开失败: ${error}`);
+  } finally {
+    hideContextMenu();
+  }
+};
+
+const handleOpenWith = async (file) => {
+  try {
+    await invoke('open_with_dialog', { path: file.path });
+  } catch (error) {
+    console.error('Failed to open with dialog:', error);
+    ElMessage.error(`打开方式失败: ${error}`);
   } finally {
     hideContextMenu();
   }
@@ -768,6 +978,67 @@ const handleDelete = async (file) => {
   }
 };
 
+const handleStartCreate = (type, targetDir = null) => {
+  const parentDir = targetDir || currentPath.value;
+  if (!parentDir) {
+    ElMessage.warning('请先打开一个文件夹');
+    hideContextMenu();
+    return;
+  }
+
+  const defaultName = type === 'folder' ? '新建文件夹' : '新建文本文档.txt';
+  creatingItem.value = {
+    active: true,
+    type,
+    name: defaultName,
+    parentDir,
+  };
+  hideContextMenu();
+
+  nextTick(() => {
+    if (creatingInputRef.value) {
+      creatingInputRef.value.focus();
+      // 选中文件名部分（不含扩展名）
+      const dotIndex = defaultName.lastIndexOf('.');
+      if (dotIndex > 0 && type === 'file') {
+        creatingInputRef.value.setSelectionRange(0, dotIndex);
+      } else {
+        creatingInputRef.value.select();
+      }
+    }
+  });
+};
+
+const confirmCreate = async () => {
+  if (!creatingItem.value.active) return;
+
+  const name = creatingItem.value.name.trim();
+  if (!name) {
+    cancelCreate();
+    return;
+  }
+
+  const { type, parentDir } = creatingItem.value;
+  creatingItem.value.active = false;
+
+  try {
+    if (type === 'folder') {
+      await invoke('create_folder', { parentDir, folderName: name });
+    } else {
+      await invoke('create_file', { parentDir, fileName: name });
+    }
+    await loadDirectory(currentPath.value);
+    ElMessage.success(type === 'folder' ? '文件夹已创建' : '文件已创建');
+  } catch (error) {
+    console.error('Failed to create:', error);
+    ElMessage.error(`创建失败: ${error}`);
+  }
+};
+
+const cancelCreate = () => {
+  creatingItem.value.active = false;
+};
+
 const handleContextMenu = async (event, file) => {
   selectedFile.value = file;
   explorerMenu.value = {
@@ -818,12 +1089,30 @@ const handleEmptyAreaContextMenu = async (event) => {
   }
 };
 
+const handleOutsideMousedown = (e) => {
+  if (!favoritesExpanded.value) return;
+
+  const favoritesBar = favoritesBarRef.value;
+  const expandBtn = document.querySelector('.path-expand-btn');
+
+  if (
+    (favoritesBar && favoritesBar.contains(e.target)) ||
+    (expandBtn && expandBtn.contains(e.target))
+  ) {
+    return;
+  }
+
+  favoritesExpanded.value = false;
+};
+
 const hideContextMenu = () => {
   explorerMenu.value.visible = false;
 };
 
 onMounted(() => {
   loadDirectory(currentPath.value);
+  loadFavorites();
+  document.addEventListener('mousedown', handleOutsideMousedown);
   window.addEventListener('click', hideContextMenu);
   window.addEventListener('resize', updateContainerHeight);
   updateContainerHeight();
@@ -831,6 +1120,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  document.removeEventListener('mousedown', handleOutsideMousedown);
   window.removeEventListener('click', hideContextMenu);
   window.removeEventListener('resize', updateContainerHeight);
   if (removeFolderSizeItemListener) removeFolderSizeItemListener();
@@ -855,6 +1145,7 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
 }
 
 .explorer-header {
+  position: relative;
   padding: 10px 20px;
   border-bottom: 1px solid #f0f0f0;
   background-color: #fafafa;
@@ -1108,34 +1399,38 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
 .explorer-context-menu {
   position: fixed;
   z-index: 1000;
-  background: white;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
-  padding: 4px 0;
-  min-width: 150px;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--app-border, #e8eaed);
+  border-radius: var(--app-radius-md, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  min-width: 160px;
+  padding: 4px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .context-menu-list {
   list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
 }
 
 .context-menu-item {
-  padding: 8px 16px;
-  font-size: 13px;
-  color: #606266;
+  padding: 6px 12px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all var(--app-transition, 0.2s);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--app-text-primary, #1a1a2e);
+  border-radius: var(--app-radius-sm, 6px);
 }
 
 .context-menu-item:hover {
-  background-color: #f5f7fa;
-  color: #409eff;
+  background-color: var(--app-hover, #f5f7fa);
+  color: var(--app-active-border, #409eff);
 }
 
 .context-menu-item.disabled {
@@ -1153,8 +1448,8 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
 
 .context-menu-divider {
   height: 1px;
-  background-color: #ebeef5;
-  margin: 4px 0;
+  background-color: var(--app-border-light, #f0f0f0);
+  margin: 4px 8px;
 }
 
 /* 工具提示样式 */
@@ -1168,24 +1463,32 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
   position: relative;
 }
 
-.context-menu-item.has-submenu::after {
-  content: '▶';
-  font-size: 10px;
-  float: right;
-  margin-left: 10px;
+.menu-item-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+
+.arrow-icon {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--app-text-muted, #909399);
 }
 
 .submenu {
   display: none;
   position: absolute;
   left: 100%;
-  top: 0;
-  background: white;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
-  padding: 4px 0;
-  min-width: 100px;
+  top: -4px;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--app-border, #e8eaed);
+  border-radius: var(--app-radius-md, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  min-width: 140px;
+  padding: 4px;
   list-style: none;
   z-index: 1001;
   max-height: 300px;
@@ -1202,8 +1505,8 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
 }
 
 .context-menu-item.active {
-  color: #409eff;
-  background-color: #ecf5ff;
+  color: var(--app-active-border, #409eff);
+  background-color: var(--app-active-bg, #ecf5ff);
 }
 
 .context-menu-item.active::before {
@@ -1225,5 +1528,142 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
 
 :deep(.el-breadcrumb__item:hover .el-breadcrumb__inner) {
   color: #409eff;
+}
+
+/* 新建文件/文件夹内联输入 */
+.creating-item-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 4px 0;
+  background-color: #ecf5ff;
+  border-radius: 4px;
+}
+
+.creating-item-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.creating-item-text-input {
+  flex: 1;
+  border: 1px solid #409eff;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  outline: none;
+  background: white;
+  color: #606266;
+}
+
+.creating-item-text-input:focus {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+.favorites-section {
+  display: flex;
+  align-items: center;
+}
+
+.favorite-toggle-btn {
+  margin: 0 2px;
+}
+
+.path-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #909399;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.path-expand-btn:hover {
+  color: #409eff;
+  background: #ecf5ff;
+}
+
+/* 收藏展开行 */
+.favorites-bar {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: #fafafa;
+  border-bottom: 1px solid #ebeef5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 4px 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.favorites-bar-empty {
+  color: #909399;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.favorites-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.favorites-bar-item:hover {
+  background: #ecf5ff;
+}
+
+.favorites-bar-item .fav-star-icon {
+  color: #e6a23c;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.fav-bar-name {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.fav-bar-path {
+  color: #909399;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.fav-bar-count {
+  color: #e6a23c;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.favorites-bar-item .fav-remove-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.favorites-bar-item:hover .fav-remove-btn {
+  opacity: 1;
 }
 </style>

@@ -155,11 +155,11 @@ const handleContextMenuDelete = (fileId) => {
   hideContextMenu()
 }
 
-// 方法：处理打开文件所在位置
+// 方法：处理窗口打开
 const handleOpenLocation = async (file) => {
   try {
     if (file && file.path) {
-      // 打开文件所在位置并选择文件
+      // 窗口打开并选择文件
       if (isTauri()) {
         await invoke('open_file_location', { path: file.path })
       } else {
@@ -170,7 +170,7 @@ const handleOpenLocation = async (file) => {
     }
   } catch (error) {
     console.error('Failed to open file location:', error)
-    ElMessage.error(`打开文件所在位置失败: ${error.message || error}`)
+    ElMessage.error(`窗口打开失败: ${error.message || error}`)
   }
 }
 
@@ -412,7 +412,7 @@ onUnmounted(() => {
 
 <style scoped>
 .home-view {
-  height: 100vh;
+  height: 100%;
   width: 100%;
   outline: none;
 }

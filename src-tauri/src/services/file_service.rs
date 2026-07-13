@@ -8,6 +8,7 @@ use crate::icon::get_file_icon_base64;
 use crate::models::FileInfo;
 use crate::utils::{resolve_shortcut, to_abs_path};
 use rusqlite::params;
+use serde::{Deserialize, Serialize};
 
 pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileInfo>, AppError> {
     let mut results = Vec::new();
@@ -352,6 +353,14 @@ pub fn save_files(app: &tauri::AppHandle, files: Vec<FileInfo>) -> Result<(), Ap
 
     drop(stmt);
     tx.commit()?;
+
+    // Sync open_count from files to favorites
+    conn.execute(
+        "UPDATE favorites SET open_count = (SELECT open_count FROM files WHERE files.path = favorites.path)",
+        [],
+    )
+    .ok();
+
     println!("Successfully saved {} files to database.", files.len());
     Ok(())
 }
@@ -792,6 +801,27 @@ pub fn open_terminal(path: String) -> Result<(), AppError> {
     }
 }
 
+pub fn increment_open_count(app: &tauri::AppHandle, path: String) -> Result<(), AppError> {
+    let conn = get_db_connection(app).map_err(|e| AppError::Database(e.to_string()))?;
+    let path = path.trim().to_string();
+
+    // Increment in files table
+    conn.execute(
+        "UPDATE files SET open_count = open_count + 1 WHERE path = ?1",
+        params![path],
+    )
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    // Increment in favorites table
+    conn.execute(
+        "UPDATE favorites SET open_count = open_count + 1 WHERE path = ?1",
+        params![path],
+    )
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    Ok(())
+}
+
 pub fn delete_to_trash(path: String) -> Result<(), AppError> {
     let path = to_abs_path(&path)?;
     trash::delete(&path).map_err(|e| AppError::Other(format!("Failed to move to trash: {}", e)))?;
@@ -902,6 +932,52 @@ pub fn calculate_dir_size_single(path: String) -> Result<u64, AppError> {
     Ok(get_dir_size(path_buf))
 }
 
+pub fn create_file(parent_dir: String, file_name: String) -> Result<String, AppError> {
+    let parent = Path::new(&parent_dir);
+    if !parent.is_dir() {
+        return Err(AppError::NotFound(format!(
+            "Parent directory does not exist: {}",
+            parent_dir
+        )));
+    }
+
+    let file_path = parent.join(&file_name);
+    if file_path.exists() {
+        return Err(AppError::Other(format!(
+            "File already exists: {}",
+            file_path.display()
+        )));
+    }
+
+    fs::File::create(&file_path)
+        .map_err(|e| AppError::Other(format!("Failed to create file: {}", e)))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+pub fn create_folder(parent_dir: String, folder_name: String) -> Result<String, AppError> {
+    let parent = Path::new(&parent_dir);
+    if !parent.is_dir() {
+        return Err(AppError::NotFound(format!(
+            "Parent directory does not exist: {}",
+            parent_dir
+        )));
+    }
+
+    let folder_path = parent.join(&folder_name);
+    if folder_path.exists() {
+        return Err(AppError::Other(format!(
+            "Folder already exists: {}",
+            folder_path.display()
+        )));
+    }
+
+    fs::create_dir(&folder_path)
+        .map_err(|e| AppError::Other(format!("Failed to create folder: {}", e)))?;
+
+    Ok(folder_path.to_string_lossy().to_string())
+}
+
 pub fn search_windows_index(query: String) -> Result<Vec<FileInfo>, AppError> {
     let mut results = Vec::new();
 
@@ -956,4 +1032,102 @@ pub fn search_windows_index(query: String) -> Result<Vec<FileInfo>, AppError> {
     }
 
     Ok(results)
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Favorite {
+    pub id: i64,
+    pub name: String,
+    pub path: String,
+    pub sort_order: i32,
+    pub open_count: i64,
+}
+
+pub fn add_favorite(app: &tauri::AppHandle, path: String, name: String) -> Result<Favorite, AppError> {
+    let conn = get_db_connection(app).map_err(|e| AppError::Database(e))?;
+
+    let name = if name.trim().is_empty() {
+        Path::new(&path)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Favorite".to_string())
+    } else {
+        name.trim().to_string()
+    };
+
+    let max_order: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(sort_order), -1) FROM favorites",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(-1);
+
+    conn.execute(
+        "INSERT OR IGNORE INTO favorites (name, path, sort_order, open_count)
+         SELECT ?1, ?2, ?3, COALESCE((SELECT open_count FROM files WHERE files.path = ?2), 0)",
+        params![name, path, max_order + 1],
+    )
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    let id = conn.last_insert_rowid();
+
+    let open_count: i64 = conn
+        .query_row(
+            "SELECT open_count FROM favorites WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    Ok(Favorite {
+        id,
+        name,
+        path,
+        sort_order: max_order + 1,
+        open_count,
+    })
+}
+
+pub fn remove_favorite(app: &tauri::AppHandle, path: String) -> Result<(), AppError> {
+    let conn = get_db_connection(app).map_err(|e| AppError::Database(e))?;
+    conn.execute("DELETE FROM favorites WHERE path = ?1", params![path])
+        .map_err(|e| AppError::Database(e.to_string()))?;
+    Ok(())
+}
+
+pub fn get_favorites(app: &tauri::AppHandle) -> Result<Vec<Favorite>, AppError> {
+    let conn = get_db_connection(app).map_err(|e| AppError::Database(e))?;
+    let mut stmt = conn
+        .prepare("SELECT id, name, path, sort_order, open_count FROM favorites ORDER BY open_count DESC")
+        .map_err(|e| AppError::Database(e.to_string()))?;
+
+    let favorites = stmt
+        .query_map([], |row| {
+            Ok(Favorite {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                path: row.get(2)?,
+                sort_order: row.get(3)?,
+                open_count: row.get(4)?,
+            })
+        })
+        .map_err(|e| AppError::Database(e.to_string()))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(favorites)
+}
+
+pub fn is_favorite(app: &tauri::AppHandle, path: String) -> Result<bool, AppError> {
+    let conn = get_db_connection(app).map_err(|e| AppError::Database(e))?;
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM favorites WHERE path = ?1",
+            params![path],
+            |row| row.get(0),
+        )
+        .map_err(|e| AppError::Database(e.to_string()))?;
+    Ok(count > 0)
 }

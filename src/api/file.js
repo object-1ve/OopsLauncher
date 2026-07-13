@@ -19,3 +19,23 @@ export async function getFileIcon(path) {
 export async function openFileLocation(path) {
   return invoke('open_file_location', { path });
 }
+
+export async function addFavorite(path, name = '') {
+  return invoke('add_favorite', { path, name });
+}
+
+export async function removeFavorite(path) {
+  return invoke('remove_favorite', { path });
+}
+
+export async function getFavorites() {
+  return invoke('get_favorites');
+}
+
+export async function isFavorite(path) {
+  return invoke('is_favorite', { path });
+}
+
+export async function incrementOpenCount(path) {
+  return invoke('increment_open_count', { path });
+}

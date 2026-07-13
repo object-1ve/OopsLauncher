@@ -64,8 +64,21 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            path TEXT NOT NULL UNIQUE,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            open_count INTEGER NOT NULL DEFAULT 0
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     migrate_files_table(&conn)?;
     migrate_categories_table(&conn)?;
+    migrate_favorites_table(&conn)?;
 
     Ok(())
 }
@@ -215,6 +228,27 @@ fn migrate_categories_table(conn: &Connection) -> Result<(), String> {
     if !cat_columns.contains(&"sort_order".to_string()) {
         conn.execute(
             "ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn migrate_favorites_table(conn: &Connection) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare("PRAGMA table_info(favorites)")
+        .map_err(|e| e.to_string())?;
+    let columns: Vec<String> = stmt
+        .query_map([], |row| Ok(row.get(1)?))
+        .map_err(|e| e.to_string())?
+        .filter_map(|result| result.ok())
+        .collect();
+
+    if !columns.contains(&"open_count".to_string()) {
+        conn.execute(
+            "ALTER TABLE favorites ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
             [],
         )
         .map_err(|e| e.to_string())?;

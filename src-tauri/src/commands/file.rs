@@ -84,6 +84,41 @@ pub async fn search_windows_index(query: String) -> Result<Vec<FileInfo>, AppErr
 }
 
 #[tauri::command]
+pub fn create_file(parent_dir: String, file_name: String) -> Result<String, AppError> {
+    services::file_service::create_file(parent_dir, file_name)
+}
+
+#[tauri::command]
+pub fn create_folder(parent_dir: String, folder_name: String) -> Result<String, AppError> {
+    services::file_service::create_folder(parent_dir, folder_name)
+}
+
+#[tauri::command]
 pub fn scan_start_menu_programs(app: tauri::AppHandle) -> Result<Vec<FileInfo>, AppError> {
     services::file_service::scan_start_menu_programs(&app)
+}
+
+#[tauri::command]
+pub fn add_favorite(app: tauri::AppHandle, path: String, name: String) -> Result<services::file_service::Favorite, AppError> {
+    services::file_service::add_favorite(&app, path, name)
+}
+
+#[tauri::command]
+pub fn remove_favorite(app: tauri::AppHandle, path: String) -> Result<(), AppError> {
+    services::file_service::remove_favorite(&app, path)
+}
+
+#[tauri::command]
+pub fn get_favorites(app: tauri::AppHandle) -> Result<Vec<services::file_service::Favorite>, AppError> {
+    services::file_service::get_favorites(&app)
+}
+
+#[tauri::command]
+pub fn is_favorite(app: tauri::AppHandle, path: String) -> Result<bool, AppError> {
+    services::file_service::is_favorite(&app, path)
+}
+
+#[tauri::command]
+pub fn increment_open_count(app: tauri::AppHandle, path: String) -> Result<(), AppError> {
+    services::file_service::increment_open_count(&app, path)
 }

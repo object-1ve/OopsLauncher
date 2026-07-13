@@ -13,16 +13,16 @@
       <!-- 文件操作项 -->
       <template v-if="selectedFileId">
         <li @click="handleOpenLocation" class="context-menu-item">
-          打开文件所在位置
+          窗口打开
         </li>
         <li @click="handleOpenInExplorer" class="context-menu-item">
-          跳转到对应目录
+          跳转目录
         </li>
         <li @click="handleOpenTerminal" class="context-menu-item">
           在终端打开
         </li>
         <li @click="handleCopyPath" class="context-menu-item">
-          复制完整路径
+          复制路径
         </li>
         <li @click="handleOpenWith" class="context-menu-item">
           打开方式
@@ -60,6 +60,27 @@
         <li v-if="showLocateToCategory || targetCategories.length > 0" class="context-menu-divider"></li>
 
       </template>
+      <!-- 新建 (二级菜单) -->
+      <li class="context-menu-item submenu-parent">
+        <div class="menu-item-content">
+          新建
+          <el-icon class="arrow-icon">
+            <ArrowRight />
+          </el-icon>
+        </div>
+        <ul class="context-submenu">
+          <li @click="handleNewFolder" class="context-menu-item">
+            <el-icon class="menu-icon"><FolderAdd /></el-icon>
+            <span>新建文件夹</span>
+          </li>
+          <li @click="handleNewFile" class="context-menu-item">
+            <el-icon class="menu-icon"><DocumentAdd /></el-icon>
+            <span>新建文件</span>
+          </li>
+        </ul>
+      </li>
+
+      <!-- 分类方式 -->
       <li class="context-menu-item submenu-parent">
         <div class="menu-item-content">
           分类方式
@@ -145,6 +166,8 @@ import {
   Bottom,
   Top,
   Check,
+  FolderAdd,
+  DocumentAdd,
 } from "@element-plus/icons-vue";
 
 // Props
@@ -208,13 +231,13 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(["delete", "hide", "openLocation", "openInExplorer", "openTerminal", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory", "locateToCategory", "togglePin", "refreshStartMenu"]);
+const emit = defineEmits(["delete", "hide", "openLocation", "openInExplorer", "openTerminal", "copyPath", "openWith", "editInfo", "sort", "classify", "toggleDisplay", "copyToCategory", "locateToCategory", "togglePin", "refreshStartMenu", "newFolder", "newFile"]);
 
 // 菜单元素引用
 const menuRef = ref(null);
 
 // 菜单尺寸
-const menuSize = ref({ width: 200, height: 150 });
+const menuSize = ref({ width: 160, height: 150 });
 
 // 计算菜单位置
 const menuStyle = computed(() => {
@@ -273,7 +296,7 @@ const handleDelete = () => {
   }
 };
 
-// 方法：处理打开文件所在位置
+// 方法：处理窗口打开
 const handleOpenLocation = () => {
   if (props.selectedFile) {
     emit("openLocation", props.selectedFile);
@@ -334,6 +357,16 @@ const handleTogglePin = () => {
 
 const handleRefreshStartMenu = () => {
   emit("refreshStartMenu");
+  emit("hide");
+};
+
+const handleNewFolder = () => {
+  emit("newFolder");
+  emit("hide");
+};
+
+const handleNewFile = () => {
+  emit("newFile");
   emit("hide");
 };
 
@@ -458,6 +491,11 @@ const handleCopyToCategory = (targetCategoryId) => {
   margin-right: 8px;
 }
 
+.menu-icon {
+  font-size: 14px;
+  color: var(--app-text-muted, #909399);
+}
+
 .context-submenu {
   position: absolute;
   left: 100%;
@@ -469,7 +507,7 @@ const handleCopyToCategory = (targetCategoryId) => {
   border: 1px solid var(--app-border, #e8eaed);
   border-radius: var(--app-radius-md, 8px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
-  min-width: 160px;
+  min-width: 140px;
   padding: 4px;
   list-style: none;
 }

@@ -35,12 +35,14 @@ const { currentCategory, switchCategory } = useFiles();
   display: grid;
   grid-template-columns: var(--app-sidebar-width, 150px) 1fr;
   flex: 1;
+  min-height: 0;
   width: 100%;
   overflow: hidden;
 }
 
 .page-content {
   height: 100%;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }

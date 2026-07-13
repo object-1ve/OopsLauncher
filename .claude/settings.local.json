@@ -3,7 +3,10 @@
     "allow": [
       "Bash(xargs -I {} sh -c 'echo \"$\\(wc -l < \"{}\"\\) {}\"')",
       "mcp__codegraph__codegraph_explore",
-      "Bash(cargo build *)"
+      "Bash(cargo build *)",
+      "WebSearch",
+      "Bash(cargo check *)",
+      "Bash(gh search *)"
     ]
   }
 }

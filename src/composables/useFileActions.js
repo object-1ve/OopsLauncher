@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { ElMessage } from 'element-plus'
 import { isTauri } from '@/utils/env'
-import { calculateDirSizes, calculateDirSize, getFileIcon as getNativeFileIcon } from '@/api/file'
+import { calculateDirSizes, calculateDirSize, getFileIcon as getNativeFileIcon, incrementOpenCount } from '@/api/file'
 import {
   currentCategory, filesByCategory, customCategories,
   categoryHasSameFile, generateDisplayName, generateId, getFileIcon,
@@ -111,6 +111,8 @@ const openFile = async (file) => {
     console.log(`Opening file: ${file.path}`)
     if (isTauri()) {
       await invoke('open_path', { path: file.path })
+      // 递增点击次数（同时更新 files 和 favorites 表）
+      await incrementOpenCount(file.path).catch(() => {})
     } else {
       window.open(file.path, '_blank')
     }

@@ -323,6 +323,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   user-select: none;
   border-right: 1px solid var(--app-border, #e8eaed);
 }
