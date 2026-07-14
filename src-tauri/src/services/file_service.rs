@@ -354,6 +354,10 @@ pub fn save_files(app: &tauri::AppHandle, files: Vec<FileInfo>) -> Result<(), Ap
     drop(stmt);
     tx.commit()?;
 
+    // 将 WAL 中已提交的页合并回主库，确保 oopslauncher.db 是自包含的，
+    // 退出/拷贝时不会因遗漏 -wal/-shm 伴随文件而丢失最近写入。
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []).ok();
+
     // Sync open_count from files to favorites
     conn.execute(
         "UPDATE favorites SET open_count = (SELECT open_count FROM files WHERE files.path = favorites.path)",

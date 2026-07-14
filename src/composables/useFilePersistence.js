@@ -1,5 +1,6 @@
 import { watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { ElMessage } from 'element-plus'
 import { isTauri } from '@/utils/env'
 import {
   currentCategory, sortMethod, sortOrder, classifyMethod, explorerPath,
@@ -134,6 +135,8 @@ const saveFiles = async () => {
     console.error('Failed to save files:', error)
     if (!isTauri()) {
       localStorage.setItem('oopslauncher_files', JSON.stringify(filesByCategory.value))
+    } else {
+      ElMessage.error(`保存数据失败：${error?.message || error}`)
     }
   } finally {
     isSaving = false;
