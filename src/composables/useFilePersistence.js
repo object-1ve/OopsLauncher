@@ -176,10 +176,10 @@ const loadFiles = async () => {
       if (customCategories.value.length === 0) {
         customCategories.value.unshift({
           id: 'main',
-          parent_id: null,
+          parentId: null,
           name: 'main',
           icon: null,
-          sort_order: 0
+          sortOrder: 0
         })
       }
 
@@ -204,10 +204,10 @@ const loadFiles = async () => {
     if (!loadedCats || loadedCats.length === 0) {
       loadedCats = [{
         id: 'main',
-        parent_id: null,
+        parentId: null,
         name: 'main',
         icon: null,
-        sort_order: 0
+        sortOrder: 0
       }]
       await invoke('save_categories_to_db', { categories: loadedCats })
     }

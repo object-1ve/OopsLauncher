@@ -21,7 +21,10 @@ export default defineConfig({
   // vite 配置
   server: {
     port: 5175,
-    strictPort: true
+    strictPort: true,
+    watch: {
+      ignored: ['**/src-tauri/**']
+    }
   },
   css: {
     preprocessorOptions: {

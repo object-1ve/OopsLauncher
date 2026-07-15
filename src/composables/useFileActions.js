@@ -324,10 +324,10 @@ const addCategory = async (name) => {
   const id = generateId()
   const newCategory = {
     id: id,
-    parent_id: null,
+    parentId: null,
     name: name,
     icon: null,
-    sort_order: customCategories.value.length
+    sortOrder: customCategories.value.length
   }
   customCategories.value.push(newCategory)
   if (!filesByCategory.value[id]) {
@@ -405,7 +405,7 @@ const saveCategories = async () => {
 const updateCategoryOrder = async (newOrder) => {
   customCategories.value = newOrder.map((cat, index) => ({
     ...cat,
-    sort_order: index
+    sortOrder: index
   }))
   await saveCategories()
 }
