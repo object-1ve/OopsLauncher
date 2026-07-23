@@ -80,9 +80,59 @@ jobs:
           path: src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: warn
 
-  # ── Release (after build succeeds) ──────────────────────────────────────────
+  # ── Build (macOS ARM64) ──────────────────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Rust toolchain ──────────────────────────────────────────────────
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # ── Node.js + pnpm ──────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install frontend dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      # ── Tests ───────────────────────────────────────────────────────────
+      - name: Run Rust unit tests
+        run: cargo test
+        working-directory: src-tauri
+
+      # ── Build ───────────────────────────────────────────────────────────
+      - name: Build Tauri application (DMG)
+        run: pnpm tbuild --bundles dmg
+
+      # ── Upload build artifacts ──────────────────────────────────────────
+      - name: Upload DMG installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: OopsLauncher-macOS
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: warn
+
+  # ── Release (after all builds succeed) ───────────────────────────────────────
   release:
-    needs: build
+    needs: [build, build-macos]
     runs-on: ubuntu-latest
 
     steps:
@@ -94,17 +144,23 @@ jobs:
         with:
           name: OopsLauncher-Windows
 
+      - name: Download DMG installer
+        uses: actions/download-artifact@v4
+        with:
+          name: OopsLauncher-macOS
+
       - name: List release assets
         run: ls -lh
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.ref_name }}    # e.g. v0.4.24
+          tag_name: ${{ github.ref_name }}
           name: OopsLauncher ${{ github.ref_name }}
           body_path: CHANGELOG.md
           files: |
             *.msi
+            *.dmg
           generate_release_notes: true
           make_latest: true
           fail_on_unmatched_files: false
