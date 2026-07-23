@@ -69,3 +69,43 @@ pub fn to_abs_path(path: &str) -> Result<String, String> {
 
     Ok(abs_str)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_abs_path_absolute() {
+        #[cfg(target_os = "windows")]
+        let path = "C:\\Windows\\System32";
+        #[cfg(not(target_os = "windows"))]
+        let path = "/usr/bin";
+        let result = to_abs_path(path);
+        assert!(result.is_ok());
+        let p = result.unwrap();
+        assert!(!p.is_empty());
+    }
+
+    #[test]
+    fn test_to_abs_path_trim_whitespace() {
+        #[cfg(target_os = "windows")]
+        let input = "  C:\\Windows  ";
+        #[cfg(not(target_os = "windows"))]
+        let input = "  /usr  ";
+        let result = to_abs_path(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_to_abs_path_empty() {
+        let result = to_abs_path("");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_to_abs_path_dot() {
+        let result = to_abs_path(".");
+        assert!(result.is_ok());
+    }
+}

@@ -20,6 +20,11 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             bundle_args: --bundles msi
+            test_cmd: ''
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bundle_args: --bundles dmg
+            test_cmd: cargo test
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -47,6 +52,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+
+      - name: Run Rust tests
+        if: matrix.test_cmd != ''
+        run: ${{ matrix.test_cmd }}
+        working-directory: src-tauri
 
       - name: Build Tauri app
         run: pnpm tbuild ${{ matrix.bundle_args }}
@@ -81,6 +91,7 @@ jobs:
           body_path: CHANGELOG.md
           files: |
             **/*.msi
+            **/*.dmg
             **/*.zip
           generate_release_notes: true
           make_latest: true
