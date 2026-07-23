@@ -123,8 +123,14 @@ const registerAppShortcut = async (key, handler, { showSuccess = false, name = '
 const registerShowHideShortcut = (showSuccess = false) =>
   registerAppShortcut('showHide', async () => {
     const isVisible = await appWindow.isVisible();
-    if (isVisible) { await appWindow.hide(); }
-    else { await appWindow.show(); await appWindow.setFocus(); }
+    const isMinimized = await appWindow.isMinimized();
+    if (isVisible && !isMinimized) {
+      await appWindow.hide();
+    } else {
+      if (isMinimized) await appWindow.unminimize();
+      await appWindow.show();
+      await appWindow.setFocus();
+    }
   }, { showSuccess, name: '显示/隐藏' });
 
 const registerCopyTimeShortcut = (showSuccess = false) =>
