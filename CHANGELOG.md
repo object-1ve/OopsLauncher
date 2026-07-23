@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.24
+
+- Release build for macOS and Windows
+
 ## 0.4.23
 
 - Support macOS DMG build
