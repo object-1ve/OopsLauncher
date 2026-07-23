@@ -11,7 +11,8 @@
     "tdev": "tauri dev",
     "tbuild": "tauri build",
     "tbundle": "tauri build --bundles msi",
-    "v": "node scripts/sync-version.js"
+    "v": "node scripts/sync-version.js",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
