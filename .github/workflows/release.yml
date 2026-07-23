@@ -4,8 +4,6 @@
 # Design rationale (following GitHub official guidance):
 #   on.push.tags        – runs ONLY when a matching tag is pushed, not on
 #                         branch commits or PRs. One tag = one workflow run.
-#   matrix build        – builds Windows (msi) and macOS (dmg) in parallel
-#                         within the SAME workflow run.
 #   softprops/action-gh-release@v3 – the de-facto standard action wrapping the
 #                         GitHub Releases API (successor to the deprecated
 #                         actions/create-release). Node 24 runtime.
@@ -32,19 +30,9 @@ env:
 # ── Jobs ─────────────────────────────────────────────────────────────────────
 jobs:
 
-  # ── Build (matrix: Windows + macOS) ─────────────────────────────────────────
+  # ── Build (Windows x64) ─────────────────────────────────────────────────────
   build:
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            bundle_args: --bundles msi
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            bundle_args: --bundles dmg --no-sign
-
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
 
     steps:
       - name: Checkout repository
@@ -54,7 +42,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: x86_64-pc-windows-msvc
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -77,25 +65,22 @@ jobs:
 
       # ── Tests ───────────────────────────────────────────────────────────
       - name: Run Rust unit tests
-        if: matrix.os != 'macos-latest'
         run: cargo test
         working-directory: src-tauri
 
       # ── Build ───────────────────────────────────────────────────────────
-      - name: Build Tauri application (${{ matrix.bundle_args }})
-        run: pnpm tbuild ${{ matrix.bundle_args }}
+      - name: Build Tauri application (MSI)
+        run: pnpm tbuild --bundles msi
 
       # ── Upload build artifacts ──────────────────────────────────────────
-      - name: Upload build artifacts
+      - name: Upload MSI installer
         uses: actions/upload-artifact@v4
         with:
-          name: OopsLauncher-${{ runner.os }}
-          path: |
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/dmg/*.dmg
+          name: OopsLauncher-Windows
+          path: src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: warn
 
-  # ── Release (after all matrix builds succeed) ───────────────────────────────
+  # ── Release (after build succeeds) ──────────────────────────────────────────
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -104,11 +89,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download all build artifacts
+      - name: Download MSI installer
         uses: actions/download-artifact@v4
         with:
-          pattern: OopsLauncher-*
-          merge-multiple: true
+          name: OopsLauncher-Windows
 
       - name: List release assets
         run: ls -lh
@@ -121,7 +105,6 @@ jobs:
           body_path: CHANGELOG.md
           files: |
             *.msi
-            *.dmg
           generate_release_notes: true
           make_latest: true
           fail_on_unmatched_files: false
