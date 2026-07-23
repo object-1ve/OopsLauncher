@@ -187,7 +187,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
 
 pub fn scan_start_menu_programs(_app: &tauri::AppHandle) -> Result<Vec<FileInfo>, AppError> {
     let mut results = Vec::new();
-    let mut seen_paths = std::collections::HashSet::new();
+    let mut seen_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     #[cfg(target_os = "windows")]
     {
