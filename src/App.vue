@@ -13,7 +13,7 @@ import { onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettings } from "@/composables/useSettings";
 import { useFiles } from "@/composables/useFiles";
 import { listen } from "@tauri-apps/api/event";
@@ -126,10 +126,17 @@ const registerShowHideShortcut = (showSuccess = false) =>
     const isMinimized = await appWindow.isMinimized();
     if (isVisible && !isMinimized) {
       await appWindow.hide();
+      const settingsWin = await WebviewWindow.getByLabel("settings");
+      if (settingsWin) {
+        const sVisible = await settingsWin.isVisible();
+        if (sVisible) await settingsWin.hide();
+      }
     } else {
       if (isMinimized) await appWindow.unminimize();
       await appWindow.show();
       await appWindow.setFocus();
+      const settingsWin = await WebviewWindow.getByLabel("settings");
+      if (settingsWin) await settingsWin.show();
     }
   }, { showSuccess, name: '显示/隐藏' });
 
