@@ -154,10 +154,11 @@ const registerAllShortcuts = async () => {
   await registerTestNotificationShortcut();
 };
 
-// 监听快捷键变化
+// 监听快捷键变化（仅主窗口执行注册/注销，设置窗口不应干扰全局快捷键）
 watch(
   () => settings.value.shortcuts.showHide,
   async (newVal, oldVal) => {
+    if (!isTauriApp || appWindow?.label !== "main") return;
     if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerShowHideShortcut(true);
   },
@@ -167,6 +168,7 @@ watch(
 watch(
   () => settings.value.shortcuts.copyTime,
   async (newVal, oldVal) => {
+    if (!isTauriApp || appWindow?.label !== "main") return;
     if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerCopyTimeShortcut(true);
   },
@@ -176,6 +178,7 @@ watch(
 watch(
   () => settings.value.shortcuts.testNotification,
   async (newVal, oldVal) => {
+    if (!isTauriApp || appWindow?.label !== "main") return;
     if (oldVal) await unregister(oldVal).catch(() => { });
     if (newVal) registerTestNotificationShortcut(true);
   },
