@@ -43,6 +43,11 @@ pub fn resolve_shortcut(path: &str) -> String {
 pub fn to_abs_path(path: &str) -> Result<String, String> {
     let path = path.trim();
     let p = Path::new(path);
+    if path.is_empty() {
+        return env::current_dir()
+            .map(|d| d.to_string_lossy().to_string())
+            .map_err(|e| format!("current_dir error: {}", e));
+    }
     let abs: PathBuf = if p.is_absolute() {
         p.to_path_buf()
     } else {

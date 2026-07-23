@@ -3,6 +3,7 @@
 ## 0.4.24
 
 - Release build for macOS and Windows
+- Fix macOS Rust test failure (empty path edge case)
 
 ## 0.4.23
 

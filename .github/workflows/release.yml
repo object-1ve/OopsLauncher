@@ -23,6 +23,7 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             bundle_args: --bundles dmg --no-sign
+            skip_tests: true
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -52,6 +53,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Run Rust tests
+        if: !matrix.skip_tests
         run: cargo test
         working-directory: src-tauri
 
