@@ -1,0 +1,128 @@
+# =============================================================================
+# Build and Release — triggered ONCE per tag push (v*), never on branch push.
+# =============================================================================
+# Design rationale (following GitHub official guidance):
+#   on.push.tags        – runs ONLY when a matching tag is pushed, not on
+#                         branch commits or PRs. One tag = one workflow run.
+#   matrix build        – builds Windows (msi) and macOS (dmg) in parallel
+#                         within the SAME workflow run.
+#   softprops/action-gh-release@v3 – the de-facto standard action wrapping the
+#                         GitHub Releases API (successor to the deprecated
+#                         actions/create-release). Node 24 runtime.
+#   generate_release_notes:true – auto-generates notes from merged PRs / commits
+#                         (GitHub's built-in release notes generator).
+# =============================================================================
+
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'           # matches v1.0.0, v0.4.24, etc. — one run per tag.
+  workflow_dispatch:    # allow manual trigger for testing.
+
+# ── Permissions ──────────────────────────────────────────────────────────────
+permissions:
+  contents: write       # required by softprops/action-gh-release to create the
+                        # release and upload assets.
+
+# ── Environment ──────────────────────────────────────────────────────────────
+env:
+  CARGO_TERM_COLOR: always
+
+# ── Jobs ─────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ── Build (matrix: Windows + macOS) ─────────────────────────────────────────
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle_args: --bundles msi
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bundle_args: --bundles dmg --no-sign
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Rust toolchain ──────────────────────────────────────────────────
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # ── Node.js + pnpm ──────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install frontend dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      # ── Tests ───────────────────────────────────────────────────────────
+      - name: Run Rust unit tests
+        if: matrix.os != 'macos-latest'
+        run: cargo test
+        working-directory: src-tauri
+
+      # ── Build ───────────────────────────────────────────────────────────
+      - name: Build Tauri application (${{ matrix.bundle_args }})
+        run: pnpm tbuild ${{ matrix.bundle_args }}
+
+      # ── Upload build artifacts ──────────────────────────────────────────
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OopsLauncher-${{ runner.os }}
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: warn
+
+  # ── Release (after all matrix builds succeed) ───────────────────────────────
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: OopsLauncher-*
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -lh
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}    # e.g. v0.4.24
+          name: OopsLauncher ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          files: |
+            *.msi
+            *.dmg
+          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: false
