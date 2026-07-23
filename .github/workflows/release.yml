@@ -19,7 +19,6 @@ on:
   push:
     tags:
       - 'v*'           # matches v1.0.0, v0.4.24, etc. — one run per tag.
-  workflow_dispatch:    # allow manual trigger for testing.
 
 # ── Permissions ──────────────────────────────────────────────────────────────
 permissions:
