@@ -23,7 +23,7 @@ jobs:
             test_cmd: cargo test
           - os: macos-latest
             target: aarch64-apple-darwin
-            bundle_args: --bundles dmg
+            bundle_args: --bundles dmg --no-sign
             test_cmd: cargo test
     runs-on: ${{ matrix.os }}
 
