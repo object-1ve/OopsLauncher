@@ -53,7 +53,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Run Rust tests
-        if: !matrix.skip_tests
+        if: ${{ !matrix.skip_tests }}
         run: cargo test
         working-directory: src-tauri
 
