@@ -82,9 +82,9 @@ mod tests {
         #[cfg(not(target_os = "windows"))]
         let path = "/tmp";
         let result = to_abs_path(path);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "to_abs_path('{}') should not error: {:?}", path, result.err());
         let p = result.unwrap();
-        assert!(!p.is_empty());
+        assert!(!p.is_empty(), "path should not be empty");
     }
 
     #[test]
@@ -94,18 +94,18 @@ mod tests {
         #[cfg(not(target_os = "windows"))]
         let input = "  /tmp  ";
         let result = to_abs_path(input);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "to_abs_path('{}') should not error: {:?}", input, result.err());
     }
 
     #[test]
     fn test_to_abs_path_empty() {
         let result = to_abs_path("");
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "to_abs_path('') should not error: {:?}", result.err());
     }
 
     #[test]
     fn test_to_abs_path_dot() {
         let result = to_abs_path(".");
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "to_abs_path('.') should not error: {:?}", result.err());
     }
 }
