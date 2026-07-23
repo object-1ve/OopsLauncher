@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.23
+
+- Support macOS DMG build
+- Add CI automated testing
+- Add Rust unit tests
+
 ## 0.4.22
 
 - Add macOS DMG build support
