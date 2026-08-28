@@ -12,6 +12,7 @@ const defaultSettings = {
     minimizeToTray: true,
     hideTaskbar: false,
     language: 'zh-CN',
+    recentCount: 10,
   },
   appearance: {
     theme: 'light',
@@ -70,6 +71,10 @@ const mergeSettings = (source = {}) => {
   }
 
   merged.appearance.sidebarWidth = normalizeNumber(merged.appearance.sidebarWidth, defaultSettings.appearance.sidebarWidth)
+
+  // 最近打开记录数量：0-50，整数
+  const rc = Number(merged.general.recentCount)
+  merged.general.recentCount = Number.isFinite(rc) ? Math.max(0, Math.min(50, Math.round(rc))) : defaultSettings.general.recentCount
 
   return merged
 }

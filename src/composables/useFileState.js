@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 // 辅助函数：生成 display_name，去掉常见后缀
 export const generateDisplayName = (fileName) => {
@@ -222,7 +223,8 @@ export const recentFiles = computed(() => {
     seenPaths.add(file.path)
     files.push(file)
   }
-  return files.sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0)).slice(0, 10)
+  const limit = useSettingsStore().settings.general.recentCount ?? 10
+  return files.sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0)).slice(0, limit)
 })
 
 export const currentFiles = computed(() => {

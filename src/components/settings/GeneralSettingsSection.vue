@@ -54,6 +54,19 @@
         </div>
       </div>
     </div>
+
+    <div class="settings-card">
+      <div class="card-label">最近打开</div>
+      <div class="setting-items">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-name">最近打开记录数量</span>
+            <span class="setting-hint">搜索面板空查询时显示的最多历史记录条数，设为 0 可关闭</span>
+          </div>
+          <el-input-number v-model="settings.general.recentCount" :min="0" :max="50" :step="1" size="default" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
