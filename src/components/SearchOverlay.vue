@@ -11,8 +11,9 @@
             @keyup.enter="handleEnter" />
         </div>
 
-        <div v-if="searchQuery && globalSearchResults.length > 0" class="search-results">
-          <div v-for="(file, index) in globalSearchResults.slice(0, 15)" :key="file.id" class="result-item"
+        <div v-if="displayList.length > 0" class="search-results">
+          <div v-if="!searchQuery" class="results-header">最近打开</div>
+          <div v-for="(file, index) in displayList.slice(0, 15)" :key="file.id" class="result-item"
             :class="{ active: selectedIndex === index, 'file-not-found': file.exists === false }"
             @click="handleSelect(file)" @mouseover="selectedIndex = index"
             @contextmenu.prevent.stop="handleResultContextMenu($event, file)">
@@ -32,13 +33,17 @@
               {{ file.matchReason }}
             </div>
           </div>
-          <div v-if="globalSearchResults.length > 15" class="results-footer">
+          <div v-if="searchQuery && globalSearchResults.length > 15" class="results-footer">
             更多结果请缩小搜索范围...
           </div>
         </div>
 
         <div v-else-if="searchQuery" class="no-results">
           未找到相关文件
+        </div>
+
+        <div v-else-if="!searchQuery && recentFiles.length === 0" class="no-results">
+          暂无最近打开的文件
         </div>
 
         <div class="search-hints">
@@ -58,13 +63,14 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { useFiles } from '@/composables/useFiles'
 
 const {
   searchQuery,
   globalSearchResults,
+  recentFiles,
   showSearchOverlay,
   openFile,
   allCategories,
@@ -80,6 +86,9 @@ const resultMenu = ref({
   y: 0,
   file: null
 })
+
+// 有查询时展示搜索结果，空查询时展示最近打开
+const displayList = computed(() => searchQuery.value ? globalSearchResults.value : recentFiles.value)
 
 const getCategoryName = (catId) => {
   if (catId === SPECIAL_CATEGORIES.START_MENU) return '开始菜单'
@@ -99,8 +108,8 @@ const handleSelect = (file) => {
 }
 
 const handleEnter = () => {
-  if (globalSearchResults.value.length > 0) {
-    handleSelect(globalSearchResults.value[selectedIndex.value])
+  if (displayList.value.length > 0) {
+    handleSelect(displayList.value[selectedIndex.value])
   }
 }
 
@@ -141,7 +150,7 @@ const handleDocumentClick = () => {
 }
 
 const moveDown = () => {
-  const max = Math.min(globalSearchResults.value.length, 15) - 1
+  const max = Math.min(displayList.value.length, 15) - 1
   if (selectedIndex.value < max) {
     selectedIndex.value++
   }
@@ -238,6 +247,14 @@ onUnmounted(() => {
   max-height: 420px;
   overflow-y: auto;
   padding: 6px;
+}
+
+.results-header {
+  padding: 10px 14px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-text-muted, #909399);
+  letter-spacing: 0.04em;
 }
 
 .result-item {

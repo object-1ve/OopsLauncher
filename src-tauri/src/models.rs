@@ -14,6 +14,7 @@ pub struct FileInfo {
     pub content: Option<String>,
     pub category: Option<String>,
     pub open_count: Option<u64>,
+    pub last_opened: Option<i64>,
     pub created_at: Option<i64>,
     pub modified_at: Option<i64>,
     pub notes: Option<String>,

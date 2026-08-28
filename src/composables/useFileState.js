@@ -212,6 +212,19 @@ export const globalSearchResults = computed(() => {
   return results
 })
 
+// 最近打开的文件（按 lastOpened 降序，去重）
+export const recentFiles = computed(() => {
+  const allFiles = Object.values(filesByCategory.value).flat()
+  const seenPaths = new Set()
+  const files = []
+  for (const file of allFiles) {
+    if (!file.lastOpened || seenPaths.has(file.path)) continue
+    seenPaths.add(file.path)
+    files.push(file)
+  }
+  return files.sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0)).slice(0, 10)
+})
+
 export const currentFiles = computed(() => {
   return sortFiles(getCurrentCategoryFiles().filter(file => !file.isPinned))
 })

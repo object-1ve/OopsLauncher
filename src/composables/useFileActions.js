@@ -124,6 +124,7 @@ const openFile = async (file) => {
       if (fileIndex !== -1) {
         const updatedFile = { ...filesInCategory[fileIndex] }
         updatedFile.openCount = (updatedFile.openCount || 0) + 1
+        updatedFile.lastOpened = Date.now()
         filesInCategory[fileIndex] = updatedFile
         await saveFiles()
       }

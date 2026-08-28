@@ -33,6 +33,7 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
             content TEXT,
             category TEXT NOT NULL DEFAULT 'main',
             open_count INTEGER DEFAULT 0,
+            last_opened INTEGER,
             created_at INTEGER,
             modified_at INTEGER,
             notes TEXT,
@@ -70,7 +71,8 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
             name TEXT NOT NULL,
             path TEXT NOT NULL UNIQUE,
             sort_order INTEGER NOT NULL DEFAULT 0,
-            open_count INTEGER NOT NULL DEFAULT 0
+            open_count INTEGER NOT NULL DEFAULT 0,
+            last_opened INTEGER
         )",
         [],
     )
@@ -104,6 +106,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
 
     add_column(conn, "category", "TEXT NOT NULL DEFAULT 'main'")?;
     add_column(conn, "open_count", "INTEGER DEFAULT 0")?;
+    add_column(conn, "last_opened", "INTEGER")?;
     add_column(conn, "content", "TEXT")?;
     add_column(conn, "display_name", "TEXT")?;
     add_column(conn, "created_at", "INTEGER")?;
@@ -165,6 +168,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
                 content TEXT,
                 category TEXT NOT NULL DEFAULT 'main',
                 open_count INTEGER DEFAULT 0,
+                last_opened INTEGER,
                 created_at INTEGER,
                 modified_at INTEGER,
                 notes TEXT,
@@ -249,6 +253,14 @@ fn migrate_favorites_table(conn: &Connection) -> Result<(), String> {
     if !columns.contains(&"open_count".to_string()) {
         conn.execute(
             "ALTER TABLE favorites ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    if !columns.contains(&"last_opened".to_string()) {
+        conn.execute(
+            "ALTER TABLE favorites ADD COLUMN last_opened INTEGER",
             [],
         )
         .map_err(|e| e.to_string())?;

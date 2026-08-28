@@ -118,6 +118,7 @@ const saveFiles = async () => {
             content: file.content || null,
             category: String(categoryId || 'main'),
             openCount: Number(file.openCount ?? file.open_count ?? 0),
+            lastOpened: file.lastOpened ?? file.last_opened ?? null,
             createdAt,
             modifiedAt,
             notes: file.notes || null,

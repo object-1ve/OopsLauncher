@@ -53,6 +53,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
                         content: None,
                         category: None,
                         open_count: None,
+                        last_opened: None,
                         created_at: None,
                         modified_at: None,
                         notes: None,
@@ -78,6 +79,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
                 content: None,
                 category: None,
                 open_count: None,
+                last_opened: None,
                 created_at: None,
                 modified_at: None,
                 notes: None,
@@ -155,6 +157,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
             content: None,
             category: None,
             open_count: None,
+            last_opened: None,
             created_at: metadata
                 .created()
                 .ok()
@@ -277,6 +280,7 @@ fn scan_dir_recursive(
                     content: None,
                     category: Some("start_menu".to_string()),
                     open_count: Some(0),
+                    last_opened: None,
                     created_at: None,
                     modified_at: None,
                     notes: None,
@@ -306,7 +310,7 @@ pub fn save_files(app: &tauri::AppHandle, files: Vec<FileInfo>) -> Result<(), Ap
     tx.execute("DELETE FROM files", [])?;
 
     let mut stmt = tx.prepare(
-        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, created_at, modified_at, notes, is_pinned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, last_opened, created_at, modified_at, notes, is_pinned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )?;
 
     for file in &files {
@@ -336,6 +340,7 @@ pub fn save_files(app: &tauri::AppHandle, files: Vec<FileInfo>) -> Result<(), Ap
             &file.content,
             category_id,
             file.open_count.unwrap_or(0) as i64,
+            file.last_opened,
             created_at,
             modified_at,
             &file.notes,
@@ -374,7 +379,7 @@ pub fn load_files(app: &tauri::AppHandle) -> Result<Vec<FileInfo>, AppError> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, display_name, path, size, type, icon, content, category, open_count, created_at, modified_at, notes, is_pinned FROM files ORDER BY open_count DESC",
+            "SELECT id, name, display_name, path, size, type, icon, content, category, open_count, last_opened, created_at, modified_at, notes, is_pinned FROM files ORDER BY open_count DESC",
         )?;
 
     let files_iter = stmt.query_map([], |row| {
@@ -390,10 +395,11 @@ pub fn load_files(app: &tauri::AppHandle) -> Result<Vec<FileInfo>, AppError> {
             content: row.get::<_, Option<String>>(7).unwrap_or(None),
             category: row.get::<_, Option<String>>(8).unwrap_or(None),
             open_count: Some(row.get::<_, i64>(9).unwrap_or(0) as u64),
-            created_at: row.get::<_, Option<i64>>(10).unwrap_or(None),
-            modified_at: row.get::<_, Option<i64>>(11).unwrap_or(None),
-            notes: row.get::<_, Option<String>>(12).unwrap_or(None),
-            is_pinned: Some(row.get::<_, i64>(13).unwrap_or(0) != 0),
+            last_opened: row.get::<_, Option<i64>>(10).unwrap_or(None),
+            created_at: row.get::<_, Option<i64>>(11).unwrap_or(None),
+            modified_at: row.get::<_, Option<i64>>(12).unwrap_or(None),
+            notes: row.get::<_, Option<String>>(13).unwrap_or(None),
+            is_pinned: Some(row.get::<_, i64>(14).unwrap_or(0) != 0),
             dir_size_calculated: Some(file_type != "directory"),
             is_reparse_point: Some(false),
         })
@@ -525,6 +531,7 @@ pub fn get_file_info(path: String) -> Result<FileInfo, AppError> {
         content,
         category: None,
         open_count: None,
+        last_opened: None,
         created_at: Some(created_at),
         modified_at: Some(modified_at),
         notes: None,
@@ -808,18 +815,22 @@ pub fn open_terminal(path: String) -> Result<(), AppError> {
 pub fn increment_open_count(app: &tauri::AppHandle, path: String) -> Result<(), AppError> {
     let conn = get_db_connection(app).map_err(|e| AppError::Database(e.to_string()))?;
     let path = path.trim().to_string();
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
 
     // Increment in files table
     conn.execute(
-        "UPDATE files SET open_count = open_count + 1 WHERE path = ?1",
-        params![path],
+        "UPDATE files SET open_count = open_count + 1, last_opened = ?2 WHERE path = ?1",
+        params![path, now_ms],
     )
     .map_err(|e| AppError::Database(e.to_string()))?;
 
     // Increment in favorites table
     conn.execute(
-        "UPDATE favorites SET open_count = open_count + 1 WHERE path = ?1",
-        params![path],
+        "UPDATE favorites SET open_count = open_count + 1, last_opened = ?2 WHERE path = ?1",
+        params![path, now_ms],
     )
     .map_err(|e| AppError::Database(e.to_string()))?;
 
