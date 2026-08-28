@@ -33,6 +33,7 @@
     "targets": [
       "msi"
     ],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -50,6 +51,14 @@
           "zh-CN"
         ]
       }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVFMDAxQzI2OTE1MEM3QjkKUldTNXgxQ1JKaHdBWHFXOG84WFgwa0s1dU94elBwazhkc1NYbHB3SXRvZzNoRGl2ZnZiRFh0aFgK",
+      "endpoints": [
+        "https://github.com/object-1ve/OopsLauncher/releases/latest/download/latest.json"
+      ]
     }
   }
 }

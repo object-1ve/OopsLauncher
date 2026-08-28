@@ -22,7 +22,8 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
-        ));
+        ))
+        .plugin(tauri_plugin_updater::Builder::new().build());
 
     // 仅在发布版启用单实例；dev 下禁用，避免旧进程把新启动的进程"劫持"、
     // 唤起旧窗口，导致 tauri.conf.json / Rust 改动看似不生效。

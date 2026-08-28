@@ -3,8 +3,8 @@
     <!-- 路由视图 -->
     <router-view />
 
-    <!-- 全局搜索遮罩层 -->
-    <SearchOverlay />
+    <!-- 更新提示弹窗 -->
+    <UpdateDialog />
   </div>
 </template>
 
@@ -19,7 +19,8 @@ import { useFiles } from "@/composables/useFiles";
 import { listen } from "@tauri-apps/api/event";
 import { ElMessage } from "element-plus";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import SearchOverlay from "@/components/SearchOverlay.vue";
+import UpdateDialog from "@/components/UpdateDialog.vue";
+import { useUpdateChecker } from "@/composables/useUpdateChecker";
 import {
   isPermissionGranted,
   requestPermission,
@@ -30,6 +31,7 @@ import { isTauri } from "@/utils/env";
 
 const { settings, isInitializing } = useSettings();
 const { saveFiles, showSearchOverlay } = useFiles();
+const { checkForUpdate } = useUpdateChecker();
 const route = useRoute();
 const isTauriApp = isTauri();
 const appWindow = isTauriApp ? getCurrentWebviewWindow() : null;
@@ -259,18 +261,10 @@ onMounted(async () => {
         await appWindow.hide();
       }
 
-      // 监听退出请求
-      await listen("request-exit", async () => {
-        console.log("Received request-exit, saving data...");
-        try {
-          await saveFiles();
-          console.log("Data saved, exiting...");
-        } catch (e) {
-          console.error("Failed to save data during exit:", e);
-        } finally {
-          await invoke("exit_app");
-        }
-      });
+      // 延迟检查更新，避免影响启动速度
+      setTimeout(() => {
+        checkForUpdate();
+      }, 3000);
     } else {
       // 其他窗口（如设置窗口）直接显示
       await appWindow.show();

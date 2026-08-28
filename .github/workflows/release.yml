@@ -9,6 +9,10 @@
 #                         actions/create-release). Node 24 runtime.
 #   generate_release_notes:true – auto-generates notes from merged PRs / commits
 #                         (GitHub's built-in release notes generator).
+#   Updater: bundle.createUpdaterArtifacts=true 让 tauri build 自动签名安装包
+#   并生成 latest.json（发布到 GitHub Release 后，
+#   https://github.com/object-1ve/OopsLauncher/releases/latest/download/latest.json
+#   即为应用内更新检查端点）。签名私钥来自 Secret TAURI_SIGNING_PRIVATE_KEY。
 # =============================================================================
 
 name: Build and Release
@@ -33,6 +37,10 @@ jobs:
   # ── Build (Windows x64) ─────────────────────────────────────────────────────
   build:
     runs-on: windows-latest
+
+    env:
+      # updater 签名私钥（GitHub Secret: TAURI_SIGNING_PRIVATE_KEY）
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
     steps:
       - name: Checkout repository
@@ -69,20 +77,52 @@ jobs:
         working-directory: src-tauri
 
       # ── Build ───────────────────────────────────────────────────────────
+      # createUpdaterArtifacts=true 时自动对安装包签名，生成 *.msi.sig
       - name: Build Tauri application (MSI)
         run: pnpm tbuild --bundles msi
+
+      # ── Generate updater manifest ──────────────────────────────────────
+      # latest.json 由构建生成的 .sig 与本次 tag 拼装；
+      # 发布后 endpoint 固定为 releases/latest/download/latest.json
+      - name: Generate updater latest.json
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi" | Select-Object -First 1
+          $sig = (Get-Content "$($msi.FullName).sig" -Raw).Trim()
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+          $url = "https://github.com/object-1ve/OopsLauncher/releases/download/${{ github.ref_name }}/$($msi.Name)"
+          $json = [ordered]@{
+            version  = $version
+            pub_date = $pubDate
+            platforms = @{
+              "windows-x86_64" = @{
+                signature = $sig
+                url       = $url
+              }
+            }
+          } | ConvertTo-Json -Depth 5
+          Set-Content -Path "src-tauri/target/release/bundle/latest.json" -Value $json
+          Get-Content "src-tauri/target/release/bundle/latest.json"
 
       # ── Upload build artifacts ──────────────────────────────────────────
       - name: Upload MSI installer
         uses: actions/upload-artifact@v4
         with:
           name: OopsLauncher-Windows
-          path: src-tauri/target/release/bundle/msi/*.msi
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/msi/*.msi.sig
+            src-tauri/target/release/bundle/latest.json
           if-no-files-found: warn
 
   # ── Build (macOS ARM64) ──────────────────────────────────────────────────────
   build-macos:
     runs-on: macos-latest
+
+    env:
+      # updater 签名私钥（GitHub Secret: TAURI_SIGNING_PRIVATE_KEY）
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
     steps:
       - name: Checkout repository
@@ -123,6 +163,8 @@ jobs:
         run: pnpm tbuild --bundles dmg
 
       # ── Upload build artifacts ──────────────────────────────────────────
+      # 注意：不上传 macOS 的 latest.json，避免覆盖 Windows 版（updater 端点
+      # 只维护 windows-x86_64 条目，macOS 端暂不提供自动更新）
       - name: Upload DMG installer
         uses: actions/upload-artifact@v4
         with:
@@ -160,6 +202,8 @@ jobs:
           body_path: CHANGELOG.md
           files: |
             *.msi
+            *.msi.sig
+            latest.json
             *.dmg
           generate_release_notes: true
           make_latest: true
