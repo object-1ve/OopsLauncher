@@ -51,12 +51,10 @@
             </el-icon>
           </button>
           <template v-if="!isEditingPath">
-            <el-breadcrumb separator="/">
-              <el-breadcrumb-item @click.stop="goHome">此电脑</el-breadcrumb-item>
-              <el-breadcrumb-item v-for="(part, index) in pathParts" :key="index" @click.stop="navigateToPart(index)">
-                {{ part }}
-              </el-breadcrumb-item>
-            </el-breadcrumb>
+            <div class="path-crumbs" :class="{ 'is-overflowing': pathOverflow }" ref="pathCrumbsRef">
+              <span v-for="(part, index) in reversedPathParts" :key="index" class="crumb" @click.stop="navigateToPart(pathParts.length - 1 - index)">{{ part }}</span>
+              <span class="crumb" @click.stop="goHome">此电脑</span>
+            </div>
           </template>
           <template v-else>
             <el-input v-model="editingPath" size="small" ref="pathInputRef" @keyup.enter="handlePathJump"
@@ -595,6 +593,15 @@ const pathParts = computed(() => {
   return currentPath.value.split(/[\\/]/).filter(p => p);
 });
 
+const reversedPathParts = computed(() => [...pathParts.value].reverse());
+const pathCrumbsRef = ref(null);
+const pathOverflow = ref(false);
+const updatePathOverflow = () => {
+  const el = pathCrumbsRef.value;
+  if (!el) return;
+  pathOverflow.value = el.scrollWidth > el.clientWidth + 1;
+};
+
 const loadDirectory = async (path, options = {}) => {
   const { resetScroll = true } = options;
   loading.value = true;
@@ -1109,6 +1116,8 @@ const hideContextMenu = () => {
   explorerMenu.value.visible = false;
 };
 
+let crumbsObserver = null;
+
 onMounted(() => {
   loadDirectory(currentPath.value);
   loadFavorites();
@@ -1117,6 +1126,11 @@ onMounted(() => {
   window.addEventListener('resize', updateContainerHeight);
   updateContainerHeight();
   registerFolderSizeTaskListeners();
+  if (pathCrumbsRef.value && 'ResizeObserver' in window) {
+    crumbsObserver = new ResizeObserver(updatePathOverflow);
+    crumbsObserver.observe(pathCrumbsRef.value);
+  }
+  nextTick(updatePathOverflow);
 });
 
 onUnmounted(() => {
@@ -1125,6 +1139,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateContainerHeight);
   if (removeFolderSizeItemListener) removeFolderSizeItemListener();
   if (removeFolderSizeCompleteListener) removeFolderSizeCompleteListener();
+  if (crumbsObserver) crumbsObserver.disconnect();
 });
 
 // Watch for external changes to explorerPath (e.g. from persistence loading)
@@ -1133,6 +1148,8 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
     loadDirectory(newPath);
   }
 });
+
+watch(currentPath, () => nextTick(updatePathOverflow));
 
 </script>
 
@@ -1522,11 +1539,40 @@ watch(() => explorerPath.value, (newPath, oldPath) => {
   height: 100%;
 }
 
-:deep(.el-breadcrumb__item) {
-  cursor: pointer;
+/* 自定义面包屑：反向 DOM + direction:rtl，超长时省略前面（左侧），保持单行 */
+.path-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  direction: rtl;
+  overflow: hidden;
+  width: max-content;
+  max-width: 100%;
 }
 
-:deep(.el-breadcrumb__item:hover .el-breadcrumb__inner) {
+.path-crumbs.is-overflowing {
+  mask-image: linear-gradient(to right, transparent 0, #000 24px);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24px);
+}
+
+.crumb {
+  direction: ltr;
+  white-space: nowrap;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--el-text-color-primary, #303133);
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.crumb:not(:first-child):not(:last-child)::before {
+  content: '/';
+  margin: 0 8px;
+  color: var(--app-text-muted, #909399);
+  font-weight: 400;
+}
+
+.crumb:hover {
   color: #409eff;
 }
 
