@@ -16,7 +16,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - '*'             # matches any tag, e.g. 0.4.24 — one run per tag.
+      - 'v*'            # only v-prefixed tags, e.g. v0.4.24 — one run per tag.
 
 # ── Permissions ──────────────────────────────────────────────────────────────
 permissions:
