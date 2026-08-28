@@ -282,6 +282,10 @@
             剪切
           </li>
           <li class="context-menu-divider"></li>
+          <li class="context-menu-item" @click="handleCopyPath(explorerMenu.file)">
+            复制路径
+          </li>
+          <li class="context-menu-divider"></li>
           <li class="context-menu-item delete" @click="handleDelete(explorerMenu.file)">
             删除
           </li>
@@ -348,6 +352,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useFiles } from '@/composables/useFiles';
 import { startFolderSizeTask, getFileIcon, openFileLocation, addFavorite, removeFavorite, getFavorites, isFavorite, incrementOpenCount } from '@/api/file';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+import { isTauri } from '@/utils/env';
 import { ElMessage } from 'element-plus';
 
 const { explorerPath, explorerHighlightPath, allCategories, processFiles } = useFiles();
@@ -929,6 +935,25 @@ const handleCut = (file) => {
   };
   hideContextMenu();
   ElMessage.success('已剪切');
+};
+
+// 复制文件完整路径到剪贴板
+const handleCopyPath = async (file) => {
+  try {
+    if (file && file.path) {
+      if (isTauri()) {
+        await writeText(file.path);
+      } else {
+        await navigator.clipboard.writeText(file.path);
+      }
+      ElMessage.success('路径已复制');
+    }
+  } catch (error) {
+    console.error('Failed to copy path:', error);
+    ElMessage.error('复制路径失败');
+  } finally {
+    hideContextMenu();
+  }
 };
 
 const handlePaste = async () => {
