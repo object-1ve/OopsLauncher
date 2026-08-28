@@ -1590,7 +1590,7 @@ watch(currentPath, () => nextTick(updatePathOverflow));
   transition: color 0.2s;
 }
 
-.crumb:not(:first-child):not(:last-child)::before {
+.crumb:not(:last-child)::before {
   content: '/';
   margin: 0 8px;
   color: var(--app-text-muted, #909399);
