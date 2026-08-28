@@ -18,6 +18,7 @@ const defaultSettings = {
     transparency: 1.0,
     itemLayout: 'tile',
     iconSize: 48,
+    sidebarWidth: 150,
     showFileName: true,
     css: {
       primaryColor: '#409EFF',
@@ -41,9 +42,9 @@ const defaultSettings = {
   }
 }
 
-const normalizePx = (value, fallback) => {
-  const n = parseInt(value, 10)
-  return Number.isFinite(n) && n > 0 ? `${n}px` : fallback
+const normalizeNumber = (value, fallback) => {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
 const mergeSettings = (source = {}) => {
@@ -68,8 +69,7 @@ const mergeSettings = (source = {}) => {
     },
   }
 
-  merged.appearance.css.itemPadding = normalizePx(merged.appearance.css.itemPadding, defaultSettings.appearance.css.itemPadding)
-  merged.appearance.css.itemMargin = normalizePx(merged.appearance.css.itemMargin, defaultSettings.appearance.css.itemMargin)
+  merged.appearance.sidebarWidth = normalizeNumber(merged.appearance.sidebarWidth, defaultSettings.appearance.sidebarWidth)
 
   return merged
 }
