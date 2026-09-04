@@ -6,7 +6,8 @@ const packageJsonPath = path.join(rootDir, "package.json");
 const tauriConfigPath = path.join(rootDir, "src-tauri", "tauri.conf.json");
 const cargoTomlPath = path.join(rootDir, "src-tauri", "Cargo.toml");
 
-const inputVersion = process.argv[2]?.trim();
+// 允许传入 tag 形式（v0.4.32），去前缀后作为唯一版本源；CI 直接传 github.ref_name 即可
+const inputVersion = process.argv[2]?.trim().replace(/^v/i, "");
 
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
 const currentVersion = packageJson.version;

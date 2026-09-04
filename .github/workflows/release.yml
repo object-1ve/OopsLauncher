@@ -13,6 +13,10 @@
 #   并生成 latest.json（发布到 GitHub Release 后，
 #   https://github.com/object-1ve/OopsLauncher/releases/latest/download/latest.json
 #   即为应用内更新检查端点）。签名私钥来自 Secret TAURI_SIGNING_PRIVATE_KEY。
+#   版本唯一来源是 git tag：build job 打包前用 scripts/sv.js 把 tag 注入
+#   三处版本文件（package.json / tauri.conf.json / Cargo.toml），发版前
+#   无需手工同步；latest.json 的 version 同样取自 tag。Cargo.lock 由 cargo
+#   构建时自动对齐（path 依赖无 checksum）。
 # =============================================================================
 
 name: Build and Release
@@ -75,6 +79,11 @@ jobs:
       - name: Run Rust unit tests
         run: cargo test
         working-directory: src-tauri
+
+      # ── Version (tag 为唯一版本源) ─────────────────────────────────────
+      # 打包前注入本次 tag；sv.js 去掉 v 前缀并校验格式，非法直接失败。
+      - name: Sync version from tag
+        run: node scripts/sv.js "${{ github.ref_name }}"
 
       # ── Build ───────────────────────────────────────────────────────────
       # createUpdaterArtifacts=true 时自动对安装包签名，生成 *.msi.sig
@@ -159,6 +168,10 @@ jobs:
       - name: Run Rust unit tests
         run: cargo test
         working-directory: src-tauri
+
+      # ── Version (tag 为唯一版本源) ─────────────────────────────────────
+      - name: Sync version from tag
+        run: node scripts/sv.js "${{ github.ref_name }}"
 
       # ── Build ───────────────────────────────────────────────────────────
       - name: Build Tauri application (DMG)
