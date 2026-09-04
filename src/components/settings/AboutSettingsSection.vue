@@ -20,11 +20,16 @@
           <span>GitHub 仓库</span>
           <svg class="link-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l9-9M7 8h9v9"/></svg>
         </a>
-        <a href="#" class="about-link" @click.prevent>
+        <a
+          href="#"
+          class="about-link"
+          :class="{ 'is-checking': checking }"
+          @click.prevent="manualCheck"
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
           </svg>
-          <span>检查更新</span>
+          <span>{{ checking ? "正在检查…" : "检查更新" }}</span>
           <svg class="link-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l9-9M7 8h9v9"/></svg>
         </a>
       </div>
@@ -36,9 +41,13 @@
 </template>
 
 <script setup>
+import { useUpdateChecker } from "@/composables/useUpdateChecker";
+
 defineProps({
   appVersion: { type: String, required: true }
 });
+
+const { checking, manualCheck } = useUpdateChecker();
 </script>
 
 <style scoped>
@@ -165,6 +174,10 @@ defineProps({
 .about-link:hover .link-arrow {
   transform: translate(2px, -2px);
   opacity: 1;
+}
+.about-link.is-checking {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .link-arrow {

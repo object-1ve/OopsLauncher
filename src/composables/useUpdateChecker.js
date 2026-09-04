@@ -3,6 +3,7 @@
 import { ref } from "vue";
 import { check } from "@tauri-apps/plugin-updater";
 import { invoke } from "@tauri-apps/api/core";
+import { ElMessage } from "element-plus";
 import { isTauri } from "@/utils/env";
 
 // 模块级状态
@@ -14,11 +15,21 @@ const releaseNotes = ref("");
 const progress = ref(0);
 const downloadedBytes = ref(0);
 const totalBytes = ref(0);
+const checking = ref(false);
 
 let currentUpdate = null;
 let checkedOnce = false;
 
 export function useUpdateChecker() {
+  // 弹出更新确认框（自动 / 手动共用）
+  const showUpdateDialog = (update) => {
+    currentUpdate = update;
+    newVersion.value = update.version;
+    releaseNotes.value = update.body || "";
+    phase.value = "confirm";
+    dialogVisible.value = true;
+  };
+
   /**
    * 启动时检查是否有新版本，仅执行一次；失败时静默（无 latest.json 或网络异常不打扰用户）
    */
@@ -28,14 +39,36 @@ export function useUpdateChecker() {
     try {
       const update = await check();
       if (!update) return;
-      currentUpdate = update;
-      newVersion.value = update.version;
-      releaseNotes.value = update.body || "";
-      phase.value = "confirm";
-      dialogVisible.value = true;
+      showUpdateDialog(update);
     } catch (err) {
       // 检查失败不打扰用户，仅记录日志
       console.error("检查更新失败:", err);
+    }
+  };
+
+  /**
+   * 设置页手动触发：不受 checkedOnce 限制，有明确的成功 / 无更新 / 失败反馈
+   */
+  const manualCheck = async () => {
+    if (!isTauri()) {
+      ElMessage.info("当前为浏览器预览环境，不支持检查更新");
+      return;
+    }
+    if (checking.value) return;
+    checking.value = true;
+    checkedOnce = true;
+    try {
+      const update = await check();
+      if (!update) {
+        ElMessage.success("当前已是最新版本");
+        return;
+      }
+      showUpdateDialog(update);
+    } catch (err) {
+      console.error("手动检查更新失败:", err);
+      ElMessage.error("检查更新失败，请稍后重试");
+    } finally {
+      checking.value = false;
     }
   };
 
@@ -87,7 +120,9 @@ export function useUpdateChecker() {
     releaseNotes,
     progress,
     totalBytes,
+    checking,
     checkForUpdate,
+    manualCheck,
     downloadAndInstall,
     closeDialog,
   };
