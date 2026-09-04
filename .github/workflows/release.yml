@@ -17,6 +17,8 @@
 #   三处版本文件（package.json / tauri.conf.json / Cargo.toml），发版前
 #   无需手工同步；latest.json 的 version 同样取自 tag。Cargo.lock 由 cargo
 #   构建时自动对齐（path 依赖无 checksum）。
+#   beforeBuildCommand 同样先跑 sv-tag.js，本地构建也自动跟随最新 tag；
+#   build job 的 checkout 用 fetch-depth: 0，保证 CI 里 git describe 可用。
 # =============================================================================
 
 name: Build and Release
@@ -49,6 +51,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # sv-tag.js 需要 tag 历史
 
       # ── Rust toolchain ──────────────────────────────────────────────────
       - name: Setup Rust toolchain
@@ -138,6 +142,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # sv-tag.js 需要 tag 历史
 
       # ── Rust toolchain ──────────────────────────────────────────────────
       - name: Setup Rust toolchain
