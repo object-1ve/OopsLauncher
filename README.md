@@ -25,6 +25,9 @@ OopsLauncher 是一个基于 [Tauri](https://tauri.app/) 和 [Vue 3](https://vue
 *   **💾 可靠持久化**：
     *   不仅业务数据（文件/分类）存入 SQLite，UI 状态（选中分类、排序方式、分类方式）也已接入数据库持久化，告别 localStorage 的不稳定性。
 
+*   **🔄 自动更新**：启动时检查 GitHub Release，发现新版本弹窗提示，点一下即下载安装（仅 Windows）。
+*   **🔍 全局搜索与收藏**：全局搜索浮层跨分类查找，常用文件可收藏置顶。
+*   **🧩 托盘常驻**：最小化到托盘，开机自启，单实例运行。
 ## 🛠️ 技术栈
 
 *   **前端**：Vue 3, Element Plus, Vite
@@ -37,13 +40,14 @@ OopsLauncher 是一个基于 [Tauri](https://tauri.app/) 和 [Vue 3](https://vue
     *   `tauri-plugin-autostart`: 开机自启管理
     *   `tauri-plugin-single-instance`: 单实例模式运行
     *   `tauri-plugin-dialog`: 文件/目录对话框支持
+    *   `tauri-plugin-updater`: 应用内自动更新
 
 ## 🚀 快速开始
 
 ### 前置要求
 
 确保你的开发环境已安装：
-*   [Node.js](https://nodejs.org/) (建议 v16+)
+*   [Node.js](https://nodejs.org/) (v18+) 和 [pnpm](https://pnpm.io/)
 *   [Rust](https://www.rust-lang.org/) (最新稳定版)
 *   C++ 生成工具 (Windows 上需安装 Visual Studio 生成工具)
 
@@ -61,16 +65,28 @@ cargo check
 ### 开发模式运行
 
 ```bash
-pnpm tauri dev
+pnpm tdev
 ```
 
 ### 打包构建
 
 ```bash
-pnpm tauri build
+pnpm tbuild
 ```
 
 构建产物将位于 `src-tauri/target/release/bundle` 目录下。
+
+## 📦 发版
+
+版本号唯一来源是 git tag，打包时自动注入，无需手工同步版本文件：
+
+```bash
+git tag v0.4.32 && git push origin v0.4.32
+```
+*   CI 产出 Windows MSI（附签名与 `latest.json` 更新清单）与 macOS DMG，发布到 GitHub Release。
+*   客户端启动时查询 `releases/latest/download/latest.json`，有新版本即弹窗，用户确认后才下载安装。
+
+> 发版前无需改 `package.json` / `tauri.conf.json` / `Cargo.toml`，`beforeBuildCommand` 会把 tag 自动写入。
 
 ## ⌨️ 快捷键
 
