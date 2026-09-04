@@ -110,11 +110,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OopsLauncher-Windows
+          # 多路径上传会保留目录层级（公共祖先 bundle/ 下的 msi/、latest.json），
+          # 下载后文件未必在根目录；release 步骤用 ** 递归匹配（见下）。
           path: |
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/msi/*.msi.sig
             src-tauri/target/release/bundle/latest.json
-          if-no-files-found: warn
+          if-no-files-found: error
 
   # ── Build (macOS ARM64) ──────────────────────────────────────────────────────
   build-macos:
@@ -170,7 +172,7 @@ jobs:
         with:
           name: OopsLauncher-macOS
           path: src-tauri/target/release/bundle/dmg/*.dmg
-          if-no-files-found: warn
+          if-no-files-found: error
 
   # ── Release (after all builds succeed) ───────────────────────────────────────
   release:
@@ -192,7 +194,7 @@ jobs:
           name: OopsLauncher-macOS
 
       - name: List release assets
-        run: ls -lh
+        run: ls -Rlh
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v3
@@ -200,11 +202,14 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: OopsLauncher ${{ github.ref_name }}
           body_path: CHANGELOG.md
+          # 递归 glob：upload-artifact 多路径会保留层级，*.msi 只匹配根目录
+          # （v0.4.29 因此丢了 MSI 却全绿）；** 兼容扁平/嵌套两种解包布局。
+          # macOS 产物只有 dmg/*.dmg，不会和 latest.json 重名冲突。
           files: |
-            *.msi
-            *.msi.sig
-            latest.json
-            *.dmg
+            **/*.msi
+            **/*.msi.sig
+            **/latest.json
+            **/*.dmg
           generate_release_notes: true
           make_latest: true
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
