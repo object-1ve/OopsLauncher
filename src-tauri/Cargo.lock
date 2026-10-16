@@ -95,6 +95,7 @@ dependencies = [
  "fs_extra",
  "image 0.24.9",
  "log",
+ "parking_lot",
  "rusqlite",
  "serde",
  "serde_json",

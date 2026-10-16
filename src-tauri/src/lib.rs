@@ -54,7 +54,7 @@ pub fn run() {
             commands::file::move_file_or_dir,
             commands::file::calculate_dir_sizes,
             commands::file::calculate_dir_size,
-            commands::file::get_file_icon,
+            commands::file::get_file_icons,
             commands::file::search_windows_index,
             commands::file::scan_start_menu_programs,
             commands::file::create_file,

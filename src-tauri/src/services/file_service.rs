@@ -4,8 +4,8 @@ use std::process::Command;
 
 use crate::db::get_db_connection;
 use crate::error::AppError;
-use crate::icon::get_file_icon_base64;
-use crate::models::FileInfo;
+use crate::icon::{get_file_icon, shared_cache_key, DEFAULT_ICON_SIZE};
+use crate::models::{FileIcons, FileInfo};
 use crate::utils::{resolve_shortcut, to_abs_path};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
                 if (drives >> i) & 1 == 1 {
                     let drive_letter = (b'A' + i as u8) as char;
                     let drive_path = format!("{}:\\", drive_letter);
-                    let icon = get_file_icon_base64(Path::new(&drive_path)).unwrap_or_default();
+                    let icon = get_file_icon(Path::new(&drive_path), DEFAULT_ICON_SIZE).unwrap_or_default();
 
                     results.push(FileInfo {
                         id: format!("drive-{}", drive_letter),
@@ -75,7 +75,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
                 path: "/".to_string(),
                 size: 0,
                 r#type: "directory".to_string(),
-                icon: get_file_icon_base64(p).unwrap_or_default(),
+                icon: get_file_icon(p, DEFAULT_ICON_SIZE).unwrap_or_default(),
                 content: None,
                 category: None,
                 open_count: None,
@@ -263,7 +263,7 @@ fn scan_dir_recursive(
 
                 // 获取基础信息和图标，避免使用 get_file_info 以免触发重型操作（如读取文本内容）
                 let target_p = Path::new(&target_path);
-                let icon = match get_file_icon_base64(target_p) {
+                let icon = match get_file_icon(target_p, DEFAULT_ICON_SIZE) {
                     Ok(icon) => icon,
                     Err(_) => "📦".to_string(), // 失败回退到 emoji
                 };
@@ -426,6 +426,31 @@ pub fn check_paths_exist(paths: Vec<String>) -> Result<Vec<bool>, AppError> {
     Ok(results)
 }
 
+/// 批量取文件/目录图标，供资源管理器一次取当前可见项的图标（避免每个文件一次 IPC）。
+///
+/// - `icons`：入参 path -> `data:image/png;base64,...`；某个路径取不到图标时对应空串。
+/// - `generic`：可跨文件复用的通用图标（目录、按扩展名的类型），键即后端缓存键。
+///   前端拿到后按同规则直接命中，不用等每个文件各自的图标返回（否则每进一个目录
+///   文件夹图标都要先显示占位符再替换，看起来就是闪一下）。
+///
+/// 同目录/同扩展名共用后端图标缓存，批量调用通常只触发一两次 Shell 调用。
+pub fn get_file_icons(paths: Vec<String>, size: u32) -> Result<FileIcons, AppError> {
+    let mut icons = std::collections::HashMap::with_capacity(paths.len());
+    let mut generic = std::collections::HashMap::new();
+    for path in paths {
+        let file_path = Path::new(&path);
+        let icon = get_file_icon(file_path, size).unwrap_or_default();
+        // 只下发能复用的通用图标，且取到图标才有意义
+        if !icon.is_empty() {
+            if let Some(key) = shared_cache_key(file_path, size) {
+                generic.insert(key, icon.clone());
+            }
+        }
+        icons.insert(path, icon);
+    }
+    Ok(FileIcons { icons, generic })
+}
+
 pub fn get_file_info(path: String) -> Result<FileInfo, AppError> {
     let abs_path = to_abs_path(&path)?;
     let original_p = Path::new(&abs_path);
@@ -458,7 +483,7 @@ pub fn get_file_info(path: String) -> Result<FileInfo, AppError> {
         .map(|e| e.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    let icon = match get_file_icon_base64(p) {
+    let icon = match get_file_icon(p, DEFAULT_ICON_SIZE) {
         Ok(icon) => icon,
         Err(e) => {
             println!("Failed to get icon: {}", e);

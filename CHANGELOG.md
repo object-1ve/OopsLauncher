@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.38
+
+- File explorer icons: request them in batches off the UI thread (`get_file_icons` / `list_directory` are now async commands) — a 30-file folder went from ~366 ms to ~73 ms cold and ~1 ms on revisit
+- Cache icons by directory/extension in the backend and by generic key/path in the frontend; the cache survives directory switches, and folder icons render straight from the shared cache so entering a new folder no longer flashes a placeholder first
+- Load icons only after scrolling stops (120 ms idle) and only for the visible items (max 80 per batch); list view requests 32 px icons and grid 64 px instead of 128 px everywhere
+- Fix icon lookup for paths containing forward slashes (e.g. `C:/Windows` typed in the address bar), which silently produced no icon before
+- Toolchain: `LazyLock` requires Rust 1.80; add `parking_lot` for the icon cache
+
 ## 0.4.36
 
 - Update notice: prompt at most once per version — the notified version is persisted (`localStorage.oopslauncher_update_notified_version`) and skipped on later startups; a newer release prompts again

@@ -128,8 +128,8 @@
             }" :draggable="!isRenaming(file)" @dragstart="handleFileDragStart($event, file)" @click.stop="selectedFile = file; hideContextMenu()" @dblclick.stop="handleItemClick(file)"
               @contextmenu.stop.prevent="handleContextMenu($event, file)">
               <div class="file-icon-wrapper">
-                <template v-if="file.icon">
-                  <img :src="file.icon" class="file-icon" />
+                <template v-if="iconUrlFor(file)">
+                  <img :src="iconUrlFor(file)" class="file-icon" />
                 </template>
                 <template v-else>
                   <span class="file-icon-placeholder">{{ file.type === 'directory' ? '📁' : '📄' }}</span>
@@ -181,8 +181,8 @@
           }" :draggable="!isRenaming(file)" @dragstart="handleFileDragStart($event, file)" @click.stop="selectedFile = file; hideContextMenu()" @dblclick.stop="handleItemClick(file)"
             @contextmenu.stop.prevent="handleContextMenu($event, file)">
             <div class="col-name">
-              <template v-if="file.icon">
-                <img :src="file.icon" class="file-list-icon" />
+              <template v-if="iconUrlFor(file)">
+                <img :src="iconUrlFor(file)" class="file-list-icon" />
               </template>
               <template v-else>
                 <span class="file-list-icon-placeholder">{{ file.type === 'directory' ? '📁' : '📄' }}</span>
@@ -361,7 +361,7 @@ import { ArrowLeft, ArrowRight, HomeFilled, Loading, CaretTop, CaretBottom, Fold
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useFiles } from '@/composables/useFiles';
-import { startFolderSizeTask, getFileIcon, openFileLocation, addFavorite, removeFavorite, getFavorites, isFavorite, incrementOpenCount } from '@/api/file';
+import { startFolderSizeTask, getFileIcons, openFileLocation, addFavorite, removeFavorite, getFavorites, isFavorite, incrementOpenCount } from '@/api/file';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { isTauri } from '@/utils/env';
 import { ElMessage } from 'element-plus';
@@ -413,7 +413,6 @@ const handleSort = (key) => {
 const explorerContentRef = ref(null);
 const scrollTop = ref(0);
 const containerHeight = ref(0);
-const iconCache = ref(new Map()); // 图标缓存
 
 // 常量配置
 const LIST_ITEM_HEIGHT = 40;
@@ -435,8 +434,159 @@ const explorerMenu = ref({
 
 const viewMode = ref('list'); // 'grid' or 'list'
 
+// --- 图标加载 ---
+// 两层缓存：
+//   1) 通用层：后端按「目录/扩展名」复用同一个图标（文件夹全系统共用，txt/png 等按类型共用），
+//      后端把这类图标连同它的键一起下发，这里按同规则直接命中 —— 所以文件夹图标不会「先占位符再闪一下」。
+//   2) 路径层：图标随文件本身变化的类型（exe/lnk…）按完整路径缓存。
+// 两层都跨目录保留。
+const genericIcons = new Map(); // 'dir:32' / 'ext:32:txt' -> data URL
+const iconCache = new Map(); // path(小写) -> data URL
+const iconRequested = new Set(); // 已请求过的 path(小写)，防止后端漏回时反复请求
+const iconTick = ref(0); // 图标到货计数：批量更新触发模板重新渲染（避免每个图标渲染一次）
+const ICON_CACHE_LIMIT = 2000; // 路径层缓存上限，超出按插入顺序淘汰最早的 1/4
+const ICON_REQUESTED_LIMIT = 5000;
+const ICON_BATCH_LIMIT = 80; // 单次 IPC 最多请求的图标数
+const ICON_LOAD_DELAY = 120; // ms：滚动停止后才开始取图标（滚动过程中完全不取）
+const ICON_SIZE_LIST = 32; // 列表项图标 CSS 尺寸 20px
+const ICON_SIZE_GRID = 64; // 网格项图标 CSS 尺寸 48px
+
+let iconBatchInFlight = false;
+let iconLoadTimer = null;
+let scrollSettleTimer = null;
+let scrolling = false;
+
+const iconCacheKey = (path) => (path || '').toLowerCase();
+
+const iconSize = () => (viewMode.value === 'grid' ? ICON_SIZE_GRID : ICON_SIZE_LIST);
+
+// 与后端 icon.rs 的缓存键保持一致：目录一个键，其它按扩展名一个键
+const dirIconKey = (size) => `dir:${size}`;
+const extIconKey = (type, size) => `ext:${size}:${(type || '').toLowerCase()}`;
+
+// 该文件是否命中通用图标（命中就不必再为它单独请求）：
+// exe/lnk 这类「每个文件一份图标」的类型后端不会下发 ext 键，这里自然落空，走路径层
+const genericIconUrl = (file, size) =>
+  file.type === 'directory'
+    ? genericIcons.get(dirIconKey(size))
+    : genericIcons.get(extIconKey(file.type, size));
+
+// 模板用：返回图标 data URL；未取到则回退到文件自带图标（例如盘符），都没有则返回空串显示占位符
+const iconUrlFor = (file) => {
+  iconTick.value; // 建立响应式依赖
+  if (!file) return '';
+  const size = iconSize();
+  return genericIconUrl(file, size) || iconCache.get(iconCacheKey(file.path)) || file.icon || '';
+};
+
+// 超出上限时按插入顺序淘汰最早的 1/4（Map/Set 都保持插入顺序）
+const trimOldest = (collection, limit) => {
+  if (collection.size < limit) return;
+  let drop = Math.ceil(limit / 4);
+  for (const key of collection.keys()) {
+    collection.delete(key);
+    if (--drop <= 0) break;
+  }
+};
+
+const cacheIcon = (key, icon) => {
+  if (!iconCache.has(key)) trimOldest(iconCache, ICON_CACHE_LIMIT);
+  iconCache.set(key, icon);
+};
+
+// 当前可见项里缺图标的路径（每个路径只取一次，单批最多 ICON_BATCH_LIMIT 个）
+const pendingIconPaths = () => {
+  const paths = [];
+  const batchKeys = new Set();
+  const size = iconSize();
+  const items = viewMode.value === 'list' ? virtualList.value.items : virtualGrid.value.items;
+  for (const file of items) {
+    if (!file.path || file.icon) continue;
+    // 通用图标已命中（文件夹、txt/png 等按类型的文件）→ 不需要为它单独请求
+    if (genericIconUrl(file, size)) continue;
+    const key = iconCacheKey(file.path);
+    if (iconCache.has(key) || iconRequested.has(key) || batchKeys.has(key)) continue;
+    batchKeys.add(key);
+    paths.push(file.path);
+    if (paths.length >= ICON_BATCH_LIMIT) break;
+  }
+  return paths;
+};
+
+// 把一批图标结果写进两层缓存
+const applyIcons = (payload) => {
+  let changed = false;
+  for (const [key, icon] of Object.entries(payload?.generic || {})) {
+    if (!icon || genericIcons.get(key) === icon) continue;
+    genericIcons.set(key, icon);
+    changed = true;
+  }
+  for (const [path, icon] of Object.entries(payload?.icons || {})) {
+    // 取不到图标时后端返回空串，同样缓存：同一次会话内不再反复请求该文件
+    cacheIcon(iconCacheKey(path), icon);
+    changed = true;
+  }
+  if (changed) iconTick.value += 1;
+};
+
+// 进目录 / 切换列表-网格尺寸前，先把「通用图标」取回来（一次小请求），
+// 这样文件夹图标直接命中缓存，不会先显示占位符再替换（闪一下）
+const prefetchGenericIcons = async () => {
+  if (!isTauri()) return;
+  const size = iconSize();
+  const path = currentPath.value;
+  if (!path || genericIcons.has(dirIconKey(size))) return;
+  try {
+    applyIcons(await getFileIcons([path], size));
+  } catch (error) {
+    console.error('Failed to prefetch icons:', error);
+  }
+};
+
+const requestVisibleIcons = async () => {
+  if (!isTauri() || iconBatchInFlight || scrolling) return;
+  const paths = pendingIconPaths();
+  if (paths.length === 0) return;
+
+  // 请求前先记账：即使后端漏回某个路径也不会死循环重试
+  trimOldest(iconRequested, ICON_REQUESTED_LIMIT);
+  for (const path of paths) iconRequested.add(iconCacheKey(path));
+
+  iconBatchInFlight = true;
+  const size = iconSize();
+  try {
+    applyIcons(await getFileIcons(paths, size));
+  } catch (error) {
+    console.error('Failed to load icons:', error);
+    // 整批失败（例如后端不可用）：撤销记账，下次进入/滚动时可以重试
+    for (const path of paths) iconRequested.delete(iconCacheKey(path));
+    return;
+  } finally {
+    iconBatchInFlight = false;
+  }
+
+  // 可见项还缺图标（超过单批上限）→ 继续取下一批
+  if (pendingIconPaths().length > 0) requestVisibleIcons();
+};
+
+const scheduleIconLoad = () => {
+  if (iconLoadTimer) return;
+  iconLoadTimer = setTimeout(() => {
+    iconLoadTimer = null;
+    requestVisibleIcons();
+  }, ICON_LOAD_DELAY);
+};
+
 const handleScroll = (e) => {
   scrollTop.value = e.target.scrollTop;
+  // 滚动过程中完全不取图标；停下来（ICON_LOAD_DELAY 内无新滚动）后一次性取当前可见项的图标
+  scrolling = true;
+  if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
+  scrollSettleTimer = setTimeout(() => {
+    scrollSettleTimer = null;
+    scrolling = false;
+    requestVisibleIcons();
+  }, ICON_LOAD_DELAY);
 };
 
 const updateContainerHeight = () => {
@@ -487,39 +637,15 @@ const virtualGrid = computed(() => {
   return { items: visibleItems, totalHeight, startRow };
 });
 
-// 图标延迟加载逻辑
-const loadVisibleIcons = async (visibleItems) => {
-  for (const file of visibleItems) {
-    if (!file.icon && !iconCache.value.has(file.path)) {
-      // 标记为正在加载中，防止重复请求
-      iconCache.value.set(file.path, 'loading');
-      try {
-        const icon = await getFileIcon(file.path);
-        iconCache.value.set(file.path, icon);
-        // 更新文件对象的图标
-        const targetFile = files.value.find(f => f.path === file.path);
-        if (targetFile) {
-          targetFile.icon = icon;
-        }
-      } catch (e) {
-        console.error('Failed to load icon:', file.path, e);
-        iconCache.value.set(file.path, ''); // 失败则空
-      }
-    } else if (iconCache.value.has(file.path)) {
-      const cachedIcon = iconCache.value.get(file.path);
-      if (cachedIcon !== 'loading' && !file.icon) {
-        file.icon = cachedIcon;
-      }
-    }
-  }
-};
-
-// 监听可见项变化，加载图标
+// 图标按需加载：每次只请求当前可见项里还缺图标的部分（后端按扩展名复用，单批通常只触发一两次 Shell 调用）
 watch([virtualList, virtualGrid], () => {
-  const visibleItems = viewMode.value === 'list' ? virtualList.value.items : virtualGrid.value.items;
-  if (visibleItems.length > 0) {
-    loadVisibleIcons(visibleItems);
-  }
+  if (scrolling) return;
+  scheduleIconLoad();
+}, { immediate: true });
+
+// 列表/网格切换会换图标尺寸，通用图标要按新尺寸重新取一次
+watch(iconSize, () => {
+  prefetchGenericIcons();
 }, { immediate: true });
 
 // 监听高亮路径，执行滚动
@@ -632,8 +758,10 @@ const updatePathOverflow = () => {
 const loadDirectory = async (path, options = {}) => {
   const { resetScroll = true } = options;
   loading.value = true;
-  // 切换路径时清空图标缓存和滚动位置
-  iconCache.value.clear();
+  // 与列目录并行地把「通用图标」（尤其文件夹图标）取回来，
+  // 列表渲染出来时文件夹图标已在缓存里 → 不再「先占位符再替换」
+  prefetchGenericIcons();
+  // 切换路径时回到顶部（图标缓存跨目录保留，重复访问同一个目录无需再取）
   if (resetScroll && explorerContentRef.value) {
     explorerContentRef.value.scrollTop = 0;
     scrollTop.value = 0;
@@ -853,8 +981,7 @@ const handlePathJump = async () => {
   }
 
   loading.value = true;
-  // 切换路径时清空图标缓存和滚动位置
-  iconCache.value.clear();
+  // 切换路径时回到顶部（图标缓存跨目录保留）
   if (explorerContentRef.value) {
     explorerContentRef.value.scrollTop = 0;
     scrollTop.value = 0;
@@ -1258,6 +1385,8 @@ onUnmounted(() => {
   if (removeFolderSizeItemListener) removeFolderSizeItemListener();
   if (removeFolderSizeCompleteListener) removeFolderSizeCompleteListener();
   if (crumbsObserver) crumbsObserver.disconnect();
+  if (iconLoadTimer) clearTimeout(iconLoadTimer);
+  if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
 });
 
 // Watch for external changes to explorerPath (e.g. from persistence loading)

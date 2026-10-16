@@ -23,6 +23,17 @@ pub struct FileInfo {
     pub is_reparse_point: Option<bool>,
 }
 
+/// 批量图标结果：资源管理器一次取当前可见项的图标。
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileIcons {
+    /// 入参 path -> data URL（取不到图标时为空串）
+    pub icons: std::collections::HashMap<String, String>,
+    /// 可跨文件复用的「通用图标」：键为 `dir:{尺寸}` / `ext:{尺寸}:{扩展名}`，
+    /// 前端按同一规则即可直接命中，不必等每个文件的图标返回。
+    pub generic: std::collections::HashMap<String, String>,
+}
+
 // 分类结构体
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

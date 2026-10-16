@@ -431,8 +431,10 @@ src/
 
 ## 性能与安全
 
-- 避免在 Rust 命令中执行长时间同步操作（会阻塞 WebView 主线程）
-- 前端 invoke 调用是异步的，但 Rust 端命令默认在后台线程执行
+- 普通 `#[tauri::command]`（同步）的函数体在 **WebView 主线程**上执行（Tauri 的 IPC 回调内），耗时操作会直接卡住界面；耗时命令必须写成 `#[tauri::command(async)]`（函数体可保持同步，会被丢到异步运行时线程池执行），或 `pub async fn`
+- 典型踩坑：资源管理器图标（Shell COM）、`list_directory`（read_dir + SQLite）都曾同步执行 → 滚动/切目录时整窗卡顿
+- 取图标的命令按「批量 + 缓存」设计：一次 IPC 取当前可见项；后端按目录/扩展名缓存（`src-tauri/src/icon.rs`），不要一个文件一次 invoke
+- 前端 invoke 调用本身是异步的（返回 Promise），但不等同于后端异步执行
 - 所有文件系统操作在 Rust 端完成，前端不直接访问文件系统
 - 使用 Content Security Policy（`"csp": null` 表示不限制，生产环境应配置）
 

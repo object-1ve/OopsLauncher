@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { ElMessage } from 'element-plus'
 import { isTauri } from '@/utils/env'
-import { calculateDirSizes, calculateDirSize, getFileIcon as getNativeFileIcon, incrementOpenCount } from '@/api/file'
+import { calculateDirSizes, calculateDirSize, incrementOpenCount } from '@/api/file'
 import {
   currentCategory, filesByCategory, customCategories,
   categoryHasSameFile, generateDisplayName, generateId, getFileIcon,
