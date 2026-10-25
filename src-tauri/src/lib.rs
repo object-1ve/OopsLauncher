@@ -19,10 +19,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--minimized"]),
-        ))
         .plugin(tauri_plugin_updater::Builder::new().build());
 
     // 仅在发布版启用单实例；dev 下禁用，避免旧进程把新启动的进程"劫持"、
@@ -72,6 +68,9 @@ pub fn run() {
             commands::category::delete_category_from_db,
             commands::notification::send_notification_custom,
             commands::app::get_app_version,
+            commands::autostart::autostart_is_enabled,
+            commands::autostart::autostart_enable,
+            commands::autostart::autostart_disable,
             commands::app::set_skip_taskbar,
             commands::app::check_is_minimized,
             commands::app::remove_window_animation,

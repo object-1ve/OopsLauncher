@@ -15,7 +15,7 @@
 import { onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
-import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { enableAutoStart, disableAutoStart, isAutoStartEnabled } from "@/utils/autostart";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettings } from "@/composables/useSettings";
 import { useFiles } from "@/composables/useFiles";
@@ -161,6 +161,22 @@ const registerTestNotificationShortcut = (showSuccess = false) =>
     await sendNativeNotification('OopsLauncher 通知测试', `触发时间：${now.toLocaleString()}`);
   }, { showSuccess, name: '测试通知' });
 
+// 让系统自启动配置与设置保持一致（计划任务 + 清理旧版 Run 项），失败只记日志
+const syncAutoStart = async () => {
+  try {
+    const enabled = await isAutoStartEnabled();
+    if (settings.value.general.autoStart) {
+      // 总是重新注册，以同步「最小化启动」带来的参数变化
+      const args = settings.value.general.autoStartMinimized ? ["--minimized"] : [];
+      await enableAutoStart(args);
+    } else if (enabled) {
+      await disableAutoStart();
+    }
+  } catch (e) {
+    console.error("Failed to sync autostart:", e);
+  }
+};
+
 const registerAllShortcuts = async () => {
   await registerShowHideShortcut();
   await registerCopyTimeShortcut();
@@ -239,23 +255,7 @@ onMounted(async () => {
         skip: settings.value.general.hideTaskbar,
       }).catch((e) => console.error("Failed to init skip taskbar:", e));
 
-      // 初始化自启动状态（确保 UI 和系统设置一致）
-      const enabled = await isEnabled();
-      if (settings.value.general.autoStart) {
-        // 总是重新注册以更新可能的参数变化 (--minimized)
-        const args = settings.value.general.autoStartMinimized
-          ? ["--minimized"]
-          : [];
-        await enable(args).catch((e) =>
-          console.error("Failed to enable autostart:", e)
-        );
-      } else if (enabled) {
-        await disable().catch((e) =>
-          console.error("Failed to disable autostart:", e)
-        );
-      }
-
-      // 如果不是静默模式，则显示窗口
+      // 如果不是静默模式，则显示窗口（窗口创建时是隐藏的，内容就绪后才出现）
       if (!isMinimized) {
         await appWindow.show();
         await appWindow.setFocus();
@@ -264,6 +264,10 @@ onMounted(async () => {
         // 确保窗口是隐藏的
         await appWindow.hide();
       }
+
+      // 自启动状态同步放到窗口显示之后：注册计划任务要起 schtasks 进程（数百毫秒），
+      // 不能挡在首帧前面
+      syncAutoStart();
 
       // 监听退出请求
       await listen("request-exit", async () => {

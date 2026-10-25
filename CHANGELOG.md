@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.39
+
+- Autostart uses a "at logon" scheduled task (`schtasks /XML`, task name `OopsLauncher`) instead of `HKCU\...\Run`: at logon explorer runs Run items one by one and waits for each to become ready, so an entry queued behind `SecurityHealthSystray.exe` / `RtkAudUService64.exe` can wait tens of seconds before it is even started. The legacy Run value is removed on the first launch
+- Main window is created hidden (`visible: false`) and shown once the frontend is ready — no more blank window before content and no white flash when autostarting minimized
+- Drop the render-blocking Google Fonts stylesheet (fetched through the system proxy; a cache miss or a not-yet-ready proxy stalls first paint)
+
 ## 0.4.38
 
 - File explorer icons: request them in batches off the UI thread (`get_file_icons` / `list_directory` are now async commands) — a 30-file folder went from ~366 ms to ~73 ms cold and ~1 ms on revisit

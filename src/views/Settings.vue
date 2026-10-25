@@ -40,7 +40,7 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useSettings } from "@/composables/useSettings";
-import { enable, disable } from "@tauri-apps/plugin-autostart";
+import { enableAutoStart, disableAutoStart } from "@/utils/autostart";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { hexToHsl, hslToHex, mixHex } from "@/utils/color";
@@ -178,9 +178,9 @@ const updateAutoStart = async () => {
   const isMinimized = settings.value.general.autoStartMinimized;
   try {
     if (isEnabled) {
-      await enable(isMinimized ? ["--minimized"] : []);
+      await enableAutoStart(isMinimized ? ["--minimized"] : []);
     } else {
-      await disable();
+      await disableAutoStart();
     }
   } catch (err) {
     console.error("Failed to update autostart:", err);
