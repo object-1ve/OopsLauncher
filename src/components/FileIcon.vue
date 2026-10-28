@@ -15,6 +15,8 @@
             }
       "
       :title="fileHoverTitle"
+      :draggable="canDrag"
+      @dragstart="handleDragStart"
       @click="handleFileClick"
       @contextmenu="handleContextMenu"
     >
@@ -30,6 +32,7 @@
           v-if="file.icon && file.icon.startsWith('data:image/')"
           :src="file.icon"
           :alt="file.name"
+          draggable="false"
           class="file-icon-img"
         />
         <div
@@ -54,7 +57,7 @@ import { useSettings } from "@/composables/useSettings";
 import { useFiles, SPECIAL_CATEGORIES } from "@/composables/useFiles";
 
 const { settings } = useSettings();
-const { currentCategory, allCategories } = useFiles();
+const { currentCategory, allCategories, filesByCategory } = useFiles();
 
 // Props
 const props = defineProps({
@@ -63,6 +66,32 @@ const props = defineProps({
     required: true,
   },
 });
+
+// 只有自定义分类中的条目才能拖拽移动（特殊分类是聚合视图，不允许作为移动来源）
+const canDrag = computed(() => {
+  const categoryId = props.file?.category;
+  if (!categoryId) return false;
+  if (currentCategory.value === SPECIAL_CATEGORIES.START_MENU) return false;
+  if (!allCategories.value.some((cat) => cat.id === categoryId)) return false;
+  const categoryFiles = filesByCategory.value[categoryId];
+  return Array.isArray(categoryFiles) && categoryFiles.some((f) => f.id === props.file.id);
+});
+
+const handleDragStart = (event) => {
+  if (!canDrag.value) {
+    event.preventDefault();
+    return;
+  }
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData(
+    "application/x-oops-launcher-file",
+    JSON.stringify({
+      id: props.file.id,
+      category: props.file.category,
+      path: props.file.path,
+    })
+  );
+};
 
 const sourceCategoryName = computed(() => {
   const categoryId = props.file?.category;

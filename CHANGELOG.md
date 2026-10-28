@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- 常规设置新增「启动后隐藏主界面」：点击图标启动后自动隐藏主窗口，可用显示/隐藏快捷键再次唤出
+- 图标可直接拖到左侧分类完成移动，保留打开次数、最近打开时间、备注与置顶状态；此前只能复制，次数会归零。特殊分类是聚合视图，不接受移动
+
 ## 0.4.39
 
 - Autostart uses a "at logon" scheduled task (`schtasks /XML`, task name `OopsLauncher`) instead of `HKCU\...\Run`: at logon explorer runs Run items one by one and waits for each to become ready, so an entry queued behind `SecurityHealthSystray.exe` / `RtkAudUService64.exe` can wait tens of seconds before it is even started. The legacy Run value is removed on the first launch

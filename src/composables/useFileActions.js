@@ -1,7 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { ElMessage } from 'element-plus'
 import { isTauri } from '@/utils/env'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { calculateDirSizes, calculateDirSize, incrementOpenCount } from '@/api/file'
 import {
   currentCategory, filesByCategory, customCategories,
@@ -129,6 +131,16 @@ const openFile = async (file) => {
         await saveFiles()
       }
     }
+
+    // 设置项：启动软件后自动隐藏主界面
+    if (isTauri() && useSettingsStore().settings.general.hideAfterLaunch) {
+      const mainWindow = getCurrentWebviewWindow()
+      if (mainWindow.label === 'main') {
+        await mainWindow.hide().catch((error) => {
+          console.error('Failed to hide main window:', error)
+        })
+      }
+    }
   } catch (error) {
     console.error('Failed to open file:', error)
     ElMessage.error(`打开文件失败: ${error.message || error}`)
@@ -156,6 +168,35 @@ const copyFileToCategory = async (file, targetCategoryId) => {
   filesByCategory.value[targetCategoryId].push(copiedFile)
   await saveFiles()
   return { success: true }
+}
+
+const moveFileToCategory = async (file, targetCategoryId) => {
+  if (!file?.id || !file?.category || !targetCategoryId) return { success: false }
+  if (targetCategoryId === file.category) return { success: false, reason: 'same_category' }
+  if (!customCategories.value.some(c => c.id === targetCategoryId)) {
+    return { success: false, reason: 'cannot_move_to_special_category' }
+  }
+  if (!customCategories.value.some(c => c.id === file.category)) {
+    return { success: false, reason: 'cannot_move_special_category_file' }
+  }
+  const sourceFiles = filesByCategory.value[file.category]
+  if (!Array.isArray(sourceFiles)) return { success: false, reason: 'source_not_found' }
+  const index = sourceFiles.findIndex(f => f.id === file.id)
+  if (index === -1) return { success: false, reason: 'source_not_found' }
+  if (!filesByCategory.value[targetCategoryId]) {
+    filesByCategory.value[targetCategoryId] = []
+  }
+  const targetFiles = filesByCategory.value[targetCategoryId]
+  const movedFile = sourceFiles[index]
+  if (categoryHasSameFile(targetFiles, movedFile.path)) {
+    return { success: false, reason: 'duplicate' }
+  }
+
+  sourceFiles.splice(index, 1)
+  movedFile.category = targetCategoryId
+  targetFiles.push(movedFile)
+  await saveFiles()
+  return { success: true, movedFile }
 }
 
 const togglePinFile = async (file) => {
@@ -474,7 +515,7 @@ const refreshStartMenuPrograms = async () => {
 }
 
 export {
-  processFiles, deleteFile, openFile, copyFileToCategory, togglePinFile, calculateFolderSizes, calculateSingleFolderSize,
+  processFiles, deleteFile, openFile, copyFileToCategory, moveFileToCategory, togglePinFile, calculateFolderSizes, calculateSingleFolderSize,
   setupTauriListeners, addCategory, renameCategory, deleteCategory, saveCategories,
   updateCategoryOrder, switchCategory, refreshStartMenuPrograms
 }
@@ -484,6 +525,7 @@ export const useFileActions = () => ({
   deleteFile,
   openFile,
   copyFileToCategory,
+  moveFileToCategory,
   togglePinFile,
   calculateFolderSizes,
   calculateSingleFolderSize,

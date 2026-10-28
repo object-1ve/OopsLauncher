@@ -7,7 +7,7 @@ import {
 } from './useFileState'
 import { saveFiles, loadFiles } from './useFilePersistence'
 import {
-  processFiles, deleteFile, openFile, copyFileToCategory, togglePinFile, calculateFolderSizes, calculateSingleFolderSize,
+  processFiles, deleteFile, openFile, copyFileToCategory, moveFileToCategory, togglePinFile, calculateFolderSizes, calculateSingleFolderSize,
   setupTauriListeners, addCategory, renameCategory, deleteCategory,
   updateCategoryOrder, switchCategory, refreshStartMenuPrograms
 } from './useFileActions'
@@ -51,6 +51,7 @@ export function useFiles() {
     deleteFile,
     openFile,
     copyFileToCategory,
+    moveFileToCategory,
     togglePinFile,
     calculateFolderSizes,
     calculateSingleFolderSize,

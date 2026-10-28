@@ -11,6 +11,7 @@ const defaultSettings = {
     autoStartMinimized: true,
     minimizeToTray: true,
     hideTaskbar: false,
+    hideAfterLaunch: false,
     language: 'zh-CN',
     recentCount: 10,
   },

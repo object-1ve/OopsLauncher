@@ -115,7 +115,13 @@ const handleSpecialDrop = async (event, categoryId) => {
   specialDragOver.value = null;
   dragTargetCategory.value = null;
 
-  // 1. 处理内部拖拽
+  // 1. 处理启动器图标拖拽：特殊分类是聚合视图，不能作为移动目标
+  if (event.dataTransfer.getData('application/x-oops-launcher-file')) {
+    ElMessage.warning('特殊分类不支持移动文件，请拖到自定义分类');
+    return;
+  }
+
+  // 2. 处理内部拖拽
   const internalData = event.dataTransfer.getData('application/x-oops-file');
   if (internalData) {
     try {

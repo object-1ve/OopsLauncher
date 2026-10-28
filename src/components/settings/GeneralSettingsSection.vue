@@ -36,6 +36,13 @@
           </div>
           <el-switch v-model="settings.general.hideTaskbar" />
         </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-name">启动后隐藏主界面</span>
+            <span class="setting-hint">点击图标启动软件后自动隐藏主窗口</span>
+          </div>
+          <el-switch v-model="settings.general.hideAfterLaunch" />
+        </div>
       </div>
     </div>
 
