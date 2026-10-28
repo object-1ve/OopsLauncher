@@ -6,6 +6,9 @@
     <!-- 全局搜索遮罩层 -->
     <SearchOverlay />
 
+    <!-- 图标拖拽浮层 -->
+    <IconDragGhost />
+
     <!-- 更新提示弹窗 -->
     <UpdateDialog />
   </div>
@@ -23,6 +26,7 @@ import { listen } from "@tauri-apps/api/event";
 import { ElMessage } from "element-plus";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import SearchOverlay from "@/components/SearchOverlay.vue";
+import IconDragGhost from "@/components/IconDragGhost.vue";
 import UpdateDialog from "@/components/UpdateDialog.vue";
 import { useUpdateChecker } from "@/composables/useUpdateChecker";
 import {

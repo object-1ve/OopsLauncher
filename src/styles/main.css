@@ -127,3 +127,9 @@ body {
 .settings-view .el-switch {
   --el-switch-on-color: var(--el-color-primary);
 }
+
+/* 图标拖拽期间统一光标，避免子元素 cursor 覆盖 */
+body.icon-dragging,
+body.icon-dragging * {
+  cursor: grabbing !important;
+}

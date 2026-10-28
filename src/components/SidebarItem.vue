@@ -29,7 +29,7 @@ const props = defineProps({
 
 const emit = defineEmits(["categoryChange", "itemContextMenu"]);
 
-const { renameCategory, processFiles, moveFileToCategory, dragTargetCategory } = useFiles();
+const { renameCategory, processFiles, dragTargetCategory } = useFiles();
 
 const isEditing = ref(false);
 const isDragOver = ref(false);
@@ -38,9 +38,6 @@ const editInputRef = ref(null);
 
 const handleDragOver = (e) => {
   e.preventDefault();
-  if (e.dataTransfer.types.includes('application/x-oops-launcher-file')) {
-    e.dataTransfer.dropEffect = 'move';
-  }
   isDragOver.value = true;
   dragTargetCategory.value = props.item.id;
 };
@@ -56,26 +53,7 @@ const handleDrop = async (e) => {
   isDragOver.value = false;
   dragTargetCategory.value = null;
 
-  // 1. 处理启动器图标拖拽：移动到目标分类，保留打开次数等数据
-  const launcherData = e.dataTransfer.getData('application/x-oops-launcher-file');
-  if (launcherData) {
-    try {
-      const file = JSON.parse(launcherData);
-      const result = await moveFileToCategory(file, props.item.id);
-      if (result.success) {
-        ElMessage.success(`已移动到「${props.item.name}」`);
-      } else if (result.reason === 'duplicate') {
-        ElMessage.warning(`「${props.item.name}」中已存在此文件`);
-      } else if (result.reason === 'cannot_move_to_special_category' || result.reason === 'cannot_move_special_category_file') {
-        ElMessage.warning('特殊分类中的项目不支持移动');
-      }
-      return;
-    } catch (err) {
-      console.error('Failed to move launcher file:', err);
-    }
-  }
-
-  // 2. 处理来自本程序资源管理器的内部拖拽
+  // 1. 处理来自本程序资源管理器的内部拖拽
   const internalData = e.dataTransfer.getData('application/x-oops-file');
   if (internalData) {
     try {

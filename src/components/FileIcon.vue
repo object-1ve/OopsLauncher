@@ -15,8 +15,7 @@
             }
       "
       :title="fileHoverTitle"
-      :draggable="canDrag"
-      @dragstart="handleDragStart"
+      @pointerdown="handlePointerDown"
       @click="handleFileClick"
       @contextmenu="handleContextMenu"
     >
@@ -55,6 +54,7 @@
 import { computed } from "vue";
 import { useSettings } from "@/composables/useSettings";
 import { useFiles, SPECIAL_CATEGORIES } from "@/composables/useFiles";
+import { startIconDrag, shouldSuppressIconClick } from "@/composables/useIconDrag";
 
 const { settings } = useSettings();
 const { currentCategory, allCategories, filesByCategory } = useFiles();
@@ -77,20 +77,9 @@ const canDrag = computed(() => {
   return Array.isArray(categoryFiles) && categoryFiles.some((f) => f.id === props.file.id);
 });
 
-const handleDragStart = (event) => {
-  if (!canDrag.value) {
-    event.preventDefault();
-    return;
-  }
-  event.dataTransfer.effectAllowed = "move";
-  event.dataTransfer.setData(
-    "application/x-oops-launcher-file",
-    JSON.stringify({
-      id: props.file.id,
-      category: props.file.category,
-      path: props.file.path,
-    })
-  );
+const handlePointerDown = (event) => {
+  if (!canDrag.value) return;
+  startIconDrag(props.file, event);
 };
 
 const sourceCategoryName = computed(() => {
@@ -129,6 +118,7 @@ const getFileNameWithoutExtension = (fileName) => {
 
 // 方法：处理文件点击
 const handleFileClick = () => {
+  if (shouldSuppressIconClick()) return;
   emit("open", props.file);
 };
 
