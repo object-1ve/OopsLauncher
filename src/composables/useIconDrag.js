@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  customCategories, dragTargetCategory, SPECIAL_CATEGORIES
+  currentCategory, customCategories, dragTargetCategory, SPECIAL_CATEGORIES
 } from './useFileState'
 import { moveFileToCategory, copyFileToCategory } from './useFileActions'
 
@@ -86,6 +86,7 @@ const onPointerUp = async () => {
   const file = pending.file
   const dragged = iconDragState.active
   const targetId = hoverCategoryId
+  const sourceSpecial = pending.sourceSpecial
   if (dragged) {
     suppressClickUntil = Date.now() + CLICK_SUPPRESS_MS
   }
@@ -97,19 +98,22 @@ const onPointerUp = async () => {
     return
   }
 
-  // 开始菜单等特殊分类是自动生成/聚合视图，拖到自定义分类时复制而不是移动，
-  // 避免从开始菜单里“消失”（刷新后又会回来）。
-  const copyOnly = SPECIAL_TARGETS.has(file.category)
-  const result = copyOnly
+  // 特殊分类（全部文件/开始菜单）是聚合或自动生成视图，拖到自定义分类时一律复制；
+  // 只有从自定义分类拖出才是移动。
+  let copyOnly = sourceSpecial || SPECIAL_TARGETS.has(file.category)
+  let result = copyOnly
     ? await copyFileToCategory(file, targetId)
     : await moveFileToCategory(file, targetId)
+  // 条目来自特殊分类但 category 字段缺失/异常时，移动会被拒绝；同样退回复制。
+  if (!copyOnly && result.reason === 'cannot_move_special_category_file') {
+    result = await copyFileToCategory(file, targetId)
+    copyOnly = true
+  }
   const category = customCategories.value.find(c => c.id === targetId)
   if (result.success) {
     ElMessage.success(`${copyOnly ? '已复制' : '已移动'}到「${category?.name || targetId}」`)
   } else if (result.reason === 'duplicate') {
     ElMessage.warning(`「${category?.name || targetId}」中已存在此文件`)
-  } else if (result.reason === 'cannot_move_special_category_file') {
-    ElMessage.warning('特殊分类中的项目不支持移动')
   }
 }
 
@@ -121,7 +125,8 @@ export const startIconDrag = (file, event) => {
     startX: event.clientX,
     startY: event.clientY,
     pointerId: event.pointerId,
-    element: event.currentTarget
+    element: event.currentTarget,
+    sourceSpecial: SPECIAL_TARGETS.has(currentCategory.value)
   }
   window.addEventListener('pointermove', onPointerMove, true)
   window.addEventListener('pointerup', onPointerUp, true)

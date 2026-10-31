@@ -68,7 +68,7 @@
         <el-form-item v-if="editForm.type === 'exe' || editForm.args" label="启动参数">
           <el-input
             v-model="editForm.args"
-            placeholder='例如：--from "2" --launch-pkg-name "com.kuaishou.nebula"'
+            placeholder="https://github.com/object-1ve/OopsLauncher"
             type="textarea"
             :rows="3"
           />
