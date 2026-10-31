@@ -12,6 +12,8 @@ pub struct FileInfo {
     pub r#type: String,
     pub icon: String,
     pub content: Option<String>,
+    /// 快捷方式附带的命令行参数（原样保留，启动时传给目标程序）
+    pub args: Option<String>,
     pub category: Option<String>,
     pub open_count: Option<u64>,
     pub last_opened: Option<i64>,

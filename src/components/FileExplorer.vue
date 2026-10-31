@@ -866,7 +866,7 @@ const goHome = () => {
 const handleOpenInExplorer = async () => {
   if (!currentPath.value) return;
   try {
-    await invoke('open_path', { path: currentPath.value });
+    await invoke('open_path', { path: currentPath.value, args: null });
   } catch (error) {
     console.error('Failed to open in explorer:', error);
     ElMessage.error(`打开资源管理器失败: ${error}`);
@@ -1012,7 +1012,7 @@ const handleOpen = (file) => {
     currentPath.value = file.path;
     loadDirectory(file.path);
   } else {
-    invoke('open_path', { path: file.path }).catch(err => {
+    invoke('open_path', { path: file.path, args: file.args || null }).catch(err => {
       ElMessage.error(`无法打开文件: ${err}`);
     });
   }

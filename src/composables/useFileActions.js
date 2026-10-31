@@ -81,7 +81,7 @@ const processFiles = async (fileList, overrideTargetCategory = null) => {
       }
     }
 
-    if (!categoryHasSameFile(filesByCategory.value[targetCategory], fileInfo.path)) {
+    if (!categoryHasSameFile(filesByCategory.value[targetCategory], fileInfo.path, fileInfo.args)) {
       filesByCategory.value[targetCategory].push(fileInfo);
       addedCount++;
     } else {
@@ -112,7 +112,7 @@ const openFile = async (file) => {
   try {
     console.log(`Opening file: ${file.path}`)
     if (isTauri()) {
-      await invoke('open_path', { path: file.path })
+      await invoke('open_path', { path: file.path, args: file.args || null })
       // 递增点击次数（同时更新 files 和 favorites 表）
       await incrementOpenCount(file.path).catch(() => {})
     } else {
@@ -152,7 +152,7 @@ const copyFileToCategory = async (file, targetCategoryId) => {
   if (targetCategoryId === SPECIAL_CATEGORIES.ALL_FILES) return { success: false, reason: 'cannot_copy_to_special_category' }
   if (file.category === targetCategoryId) return { success: false }
   if (!filesByCategory.value[targetCategoryId]) return { success: false }
-  if (categoryHasSameFile(filesByCategory.value[targetCategoryId], file.path)) {
+  if (categoryHasSameFile(filesByCategory.value[targetCategoryId], file.path, file.args)) {
     return { success: false, reason: 'duplicate' }
   }
   const newId = generateId()
@@ -188,7 +188,7 @@ const moveFileToCategory = async (file, targetCategoryId) => {
   }
   const targetFiles = filesByCategory.value[targetCategoryId]
   const movedFile = sourceFiles[index]
-  if (categoryHasSameFile(targetFiles, movedFile.path)) {
+  if (categoryHasSameFile(targetFiles, movedFile.path, movedFile.args)) {
     return { success: false, reason: 'duplicate' }
   }
 

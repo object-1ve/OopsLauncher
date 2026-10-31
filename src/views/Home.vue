@@ -35,6 +35,7 @@ import FileExplorer from '@/components/FileExplorer.vue'
 import ContextMenu from '@/components/ContextMenu.vue'
 import FileInfoDialog from '@/components/FileInfoDialog.vue'
 import { useFiles, SPECIAL_CATEGORIES } from '@/composables/useFiles'
+import { normalizePathKey } from '@/composables/useFileState'
 import { useSettings } from '@/composables/useSettings'
 import { useContextMenu } from '@/composables/useContextMenu'
 import { invoke } from '@tauri-apps/api/core'
@@ -245,8 +246,7 @@ const handleOpenWith = async (file) => {
 // 方法：处理文件信息编辑
 const handleEditInfo = (file) => {
   if (currentCategory.value === SPECIAL_CATEGORIES.ALL_FILES ||
-    currentCategory.value === SPECIAL_CATEGORIES.FILE_EXPLORER ||
-    currentCategory.value === SPECIAL_CATEGORIES.START_MENU) {
+    currentCategory.value === SPECIAL_CATEGORIES.FILE_EXPLORER) {
     ElMessage.warning('特殊分类中的项目不支持编辑信息')
     return
   }
@@ -259,6 +259,19 @@ const handleEditInfo = (file) => {
 // 方法：处理文件信息保存
 const handleSaveFileInfo = async (updatedFile) => {
   try {
+    const categoryFiles = filesByCategory.value[updatedFile.category] || []
+    const pathKey = normalizePathKey(updatedFile.path)
+    const argsKey = String(updatedFile.args || '')
+    const duplicated = categoryFiles.some(
+      f => f.id !== updatedFile.id &&
+        normalizePathKey(f.path) === pathKey &&
+        String(f.args || '') === argsKey
+    )
+    if (duplicated) {
+      ElMessage.warning('同一分类中已存在相同路径和启动参数的项目')
+      return
+    }
+
     // 在 filesByCategory 中找到并更新对应的文件
     for (const category in filesByCategory.value) {
       const files = filesByCategory.value[category]

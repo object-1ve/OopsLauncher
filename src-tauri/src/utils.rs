@@ -9,13 +9,16 @@ use windows::{
     Win32::Foundation::MAX_PATH,
 };
 
-pub fn resolve_shortcut(path: &str) -> String {
+/// 解析 .lnk，返回 (目标路径, 命令行参数)。
+///
+/// 不是快捷方式、解析失败或目标不存在时原样返回 `path`，参数为 `None`。
+pub fn resolve_shortcut(path: &str) -> (String, Option<String>) {
     #[cfg(target_os = "windows")]
     {
         if path.to_lowercase().ends_with(".lnk") {
             unsafe {
                 let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-                let result = (|| -> windows::core::Result<String> {
+                let result = (|| -> windows::core::Result<(String, Option<String>)> {
                     let shell_link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
                     let persist_file: IPersistFile = shell_link.cast()?;
                     let h_path = HSTRING::from(path);
@@ -23,21 +26,26 @@ pub fn resolve_shortcut(path: &str) -> String {
 
                     let mut buffer = [0u16; MAX_PATH as usize];
                     shell_link.GetPath(&mut buffer, std::ptr::null_mut(), 0)?;
-                    
                     let target = String::from_utf16_lossy(&buffer);
                     let target = target.trim_matches(char::from(0)).to_string();
-                    Ok(target)
+
+                    let mut args_buffer = [0u16; 4096];
+                    shell_link.GetArguments(&mut args_buffer)?;
+                    let args = String::from_utf16_lossy(&args_buffer);
+                    let args = args.trim_matches(char::from(0)).to_string();
+
+                    Ok((target, if args.is_empty() { None } else { Some(args) }))
                 })();
                 CoUninitialize();
-                if let Ok(target) = result {
+                if let Ok((target, args)) = result {
                     if !target.is_empty() && Path::new(&target).exists() {
-                        return target;
+                        return (target, args);
                     }
                 }
             }
         }
     }
-    path.to_string()
+    (path.to_string(), None)
 }
 
 pub fn to_abs_path(path: &str) -> Result<String, String> {
@@ -112,5 +120,52 @@ mod tests {
     fn test_to_abs_path_dot() {
         let result = to_abs_path(".");
         assert!(result.is_ok(), "to_abs_path('.') should not error: {:?}", result.err());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_resolve_shortcut_preserves_arguments() {
+        use windows::Win32::System::Com::{
+            CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile,
+            CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+        };
+        use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
+
+        let dir = std::env::temp_dir().join(format!(
+            "oopslauncher_shortcut_test_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let lnk_path = dir.join("test.lnk");
+        let target = std::env::current_exe().unwrap();
+        let args = "--from \"2\" --launch-pkg-name \"com.kuaishou.nebula\"";
+
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            let shell_link: IShellLinkW =
+                CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).unwrap();
+            shell_link
+                .SetPath(PCWSTR(HSTRING::from(target.to_string_lossy().as_ref()).as_ptr()))
+                .unwrap();
+            shell_link
+                .SetArguments(PCWSTR(HSTRING::from(args).as_ptr()))
+                .unwrap();
+            let persist_file: IPersistFile = shell_link.cast().unwrap();
+            persist_file
+                .Save(
+                    PCWSTR(HSTRING::from(lnk_path.to_string_lossy().as_ref()).as_ptr()),
+                    true,
+                )
+                .unwrap();
+            CoUninitialize();
+        }
+
+        let (resolved_target, resolved_args) =
+            resolve_shortcut(lnk_path.to_string_lossy().as_ref());
+        assert_eq!(resolved_target, target.to_string_lossy());
+        assert_eq!(resolved_args.as_deref(), Some(args));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -67,12 +67,15 @@ const props = defineProps({
   },
 });
 
-// 只有自定义分类中的条目才能拖拽移动（特殊分类是聚合视图，不允许作为移动来源）
+// 自定义分类中的条目拖拽为移动；开始菜单是自动生成的特殊分类，拖拽只做复制。
 const canDrag = computed(() => {
   const categoryId = props.file?.category;
   if (!categoryId) return false;
-  if (currentCategory.value === SPECIAL_CATEGORIES.START_MENU) return false;
-  if (!allCategories.value.some((cat) => cat.id === categoryId)) return false;
+  if (currentCategory.value === SPECIAL_CATEGORIES.FILE_EXPLORER) return false;
+  const isCustom = allCategories.value.some((cat) => cat.id === categoryId);
+  const isStartMenu = currentCategory.value === SPECIAL_CATEGORIES.START_MENU &&
+    categoryId === SPECIAL_CATEGORIES.START_MENU;
+  if (!isCustom && !isStartMenu) return false;
   const categoryFiles = filesByCategory.value[categoryId];
   return Array.isArray(categoryFiles) && categoryFiles.some((f) => f.id === props.file.id);
 });

@@ -31,6 +31,7 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
             type TEXT,
             icon TEXT,
             content TEXT,
+            args TEXT NOT NULL DEFAULT '',
             category TEXT NOT NULL DEFAULT 'main',
             open_count INTEGER DEFAULT 0,
             last_opened INTEGER,
@@ -38,7 +39,7 @@ pub fn init_database(app: &tauri::AppHandle) -> Result<(), String> {
             modified_at INTEGER,
             notes TEXT,
             is_pinned INTEGER DEFAULT 0,
-            UNIQUE(category, path)
+            UNIQUE(category, path, args)
         )",
         [],
     )
@@ -108,6 +109,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
     add_column(conn, "open_count", "INTEGER DEFAULT 0")?;
     add_column(conn, "last_opened", "INTEGER")?;
     add_column(conn, "content", "TEXT")?;
+    add_column(conn, "args", "TEXT NOT NULL DEFAULT ''")?;
     add_column(conn, "display_name", "TEXT")?;
     add_column(conn, "created_at", "INTEGER")?;
     add_column(conn, "modified_at", "INTEGER")?;
@@ -131,7 +133,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
         .filter_map(|result| result.ok())
         .collect();
 
-    let mut has_global_unique_path = false;
+    let mut needs_rebuild = false;
     for (idx_name, is_unique) in indexes {
         if is_unique {
             let mut info_stmt = conn
@@ -143,14 +145,18 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
                 .filter_map(|result| result.ok())
                 .collect();
 
-            if idx_columns == vec!["path".to_string()] {
-                has_global_unique_path = true;
+            // 旧约束按 path 唯一，同一 exe 配不同参数（快捷方式）会被误判为重复；
+            // 新约束把 args 纳入唯一键。
+            if idx_columns == vec!["path".to_string()]
+                || idx_columns == vec!["category".to_string(), "path".to_string()]
+            {
+                needs_rebuild = true;
                 break;
             }
         }
     }
 
-    if has_global_unique_path {
+    if needs_rebuild {
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
 
         tx.execute("ALTER TABLE files RENAME TO files_old", [])
@@ -166,6 +172,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
                 type TEXT,
                 icon TEXT,
                 content TEXT,
+                args TEXT NOT NULL DEFAULT '',
                 category TEXT NOT NULL DEFAULT 'main',
                 open_count INTEGER DEFAULT 0,
                 last_opened INTEGER,
@@ -173,7 +180,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
                 modified_at INTEGER,
                 notes TEXT,
                 is_pinned INTEGER DEFAULT 0,
-                UNIQUE(category, path)
+                UNIQUE(category, path, args)
             )",
             [],
         )
@@ -181,7 +188,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
 
         tx.execute(
             "INSERT OR IGNORE INTO files (
-                id, name, display_name, path, size, type, icon, content, category, open_count, created_at, modified_at, notes, is_pinned
+                id, name, display_name, path, size, type, icon, content, args, category, open_count, created_at, modified_at, notes, is_pinned
             )
             SELECT
                 id,
@@ -192,6 +199,7 @@ fn migrate_files_table(conn: &Connection) -> Result<(), String> {
                 COALESCE(type, ''),
                 COALESCE(icon, ''),
                 content,
+                COALESCE(args, ''),
                 COALESCE(category, 'main'),
                 COALESCE(open_count, 0),
                 created_at,
@@ -267,4 +275,61 @@ fn migrate_favorites_table(conn: &Connection) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn migrate_files_table_allows_same_path_with_different_args() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE files (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                path TEXT NOT NULL,
+                size INTEGER,
+                type TEXT,
+                icon TEXT,
+                content TEXT,
+                category TEXT NOT NULL DEFAULT 'main',
+                open_count INTEGER DEFAULT 0,
+                last_opened INTEGER,
+                created_at INTEGER,
+                modified_at INTEGER,
+                notes TEXT,
+                is_pinned INTEGER DEFAULT 0,
+                UNIQUE(category, path)
+            );
+            INSERT INTO files (id, name, display_name, path, category)
+            VALUES ('old', '快捷方式', '快捷方式', 'C:\\AndrowsLauncher.exe', 'start_menu');",
+        )
+        .unwrap();
+
+        migrate_files_table(&conn).unwrap();
+
+        conn.execute(
+            "INSERT INTO files (id, name, display_name, path, args, category)
+             VALUES ('store', '应用宝', '应用宝', 'C:\\AndrowsLauncher.exe', '--from \"2\"', 'start_menu')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO files (id, name, display_name, path, args, category)
+             VALUES ('app', '快手', '快手', 'C:\\AndrowsLauncher.exe', '--launch-pkg-name \"com.kuaishou.nebula\"', 'start_menu')",
+            [],
+        )
+        .unwrap();
+
+        // 同一路径且参数相同时仍应视为重复
+        assert!(conn
+            .execute(
+                "INSERT INTO files (id, name, display_name, path, args, category)
+                 VALUES ('dup', '重复', '重复', 'C:\\AndrowsLauncher.exe', '--from \"2\"', 'start_menu')",
+                [],
+            )
+            .is_err());
+    }
 }

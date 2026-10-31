@@ -51,6 +51,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
                         r#type: "directory".to_string(),
                         icon,
                         content: None,
+                        args: None,
                         category: None,
                         open_count: None,
                         last_opened: None,
@@ -77,6 +78,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
                 r#type: "directory".to_string(),
                 icon: get_file_icon(p, DEFAULT_ICON_SIZE).unwrap_or_default(),
                 content: None,
+                args: None,
                 category: None,
                 open_count: None,
                 last_opened: None,
@@ -155,6 +157,7 @@ pub fn list_directory(app: &tauri::AppHandle, path: String) -> Result<Vec<FileIn
             r#type: extension,
             icon,
             content: None,
+            args: None,
             category: None,
             open_count: None,
             last_opened: None,
@@ -235,8 +238,8 @@ fn scan_dir_recursive(
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default();
 
-                // 再次解析快捷方式以获取显示名称和目标
-                let target_path = resolve_shortcut(&path_str);
+                // 再次解析快捷方式以获取显示名称、目标和启动参数
+                let (target_path, shortcut_args) = resolve_shortcut(&path_str);
 
                 // 如果目标路径为空，或者是空的快捷方式，跳过
                 if target_path.is_empty() {
@@ -249,11 +252,17 @@ fn scan_dir_recursive(
                     continue;
                 }
 
-                // 如果已经添加过相同目标，则跳过
-                if seen_paths.contains(&target_path) {
+                // 同一 exe 可能靠不同参数启动不同功能（如腾讯应用宝），
+                // 因此去重键必须包含参数，否则只会保留其中一个快捷方式。
+                let seen_key = format!(
+                    "{}\u{0}{}",
+                    target_path,
+                    shortcut_args.as_deref().unwrap_or("")
+                );
+                if seen_paths.contains(&seen_key) {
                     continue;
                 }
-                seen_paths.insert(target_path.clone());
+                seen_paths.insert(seen_key);
 
                 let display_name = if let Some(last_dot_idx) = name.rfind('.') {
                     name[..last_dot_idx].to_string()
@@ -278,6 +287,7 @@ fn scan_dir_recursive(
                     r#type: "exe".to_string(),
                     icon,
                     content: None,
+                    args: shortcut_args,
                     category: Some("start_menu".to_string()),
                     open_count: Some(0),
                     last_opened: None,
@@ -310,7 +320,7 @@ pub fn save_files(app: &tauri::AppHandle, files: Vec<FileInfo>) -> Result<(), Ap
     tx.execute("DELETE FROM files", [])?;
 
     let mut stmt = tx.prepare(
-        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, category, open_count, last_opened, created_at, modified_at, notes, is_pinned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT OR REPLACE INTO files (id, name, display_name, path, size, type, icon, content, args, category, open_count, last_opened, created_at, modified_at, notes, is_pinned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )?;
 
     for file in &files {
@@ -338,6 +348,7 @@ pub fn save_files(app: &tauri::AppHandle, files: Vec<FileInfo>) -> Result<(), Ap
             &file.r#type,
             &file.icon,
             &file.content,
+            file.args.as_deref().unwrap_or(""),
             category_id,
             file.open_count.unwrap_or(0) as i64,
             file.last_opened,
@@ -379,7 +390,7 @@ pub fn load_files(app: &tauri::AppHandle) -> Result<Vec<FileInfo>, AppError> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, display_name, path, size, type, icon, content, category, open_count, last_opened, created_at, modified_at, notes, is_pinned FROM files ORDER BY open_count DESC",
+            "SELECT id, name, display_name, path, size, type, icon, content, args, category, open_count, last_opened, created_at, modified_at, notes, is_pinned FROM files ORDER BY open_count DESC",
         )?;
 
     let files_iter = stmt.query_map([], |row| {
@@ -393,13 +404,17 @@ pub fn load_files(app: &tauri::AppHandle) -> Result<Vec<FileInfo>, AppError> {
             r#type: file_type.clone(),
             icon: row.get::<_, String>(6).unwrap_or_default(),
             content: row.get::<_, Option<String>>(7).unwrap_or(None),
-            category: row.get::<_, Option<String>>(8).unwrap_or(None),
-            open_count: Some(row.get::<_, i64>(9).unwrap_or(0) as u64),
-            last_opened: row.get::<_, Option<i64>>(10).unwrap_or(None),
-            created_at: row.get::<_, Option<i64>>(11).unwrap_or(None),
-            modified_at: row.get::<_, Option<i64>>(12).unwrap_or(None),
-            notes: row.get::<_, Option<String>>(13).unwrap_or(None),
-            is_pinned: Some(row.get::<_, i64>(14).unwrap_or(0) != 0),
+            args: row
+                .get::<_, Option<String>>(8)
+                .unwrap_or(None)
+                .filter(|a| !a.is_empty()),
+            category: row.get::<_, Option<String>>(9).unwrap_or(None),
+            open_count: Some(row.get::<_, i64>(10).unwrap_or(0) as u64),
+            last_opened: row.get::<_, Option<i64>>(11).unwrap_or(None),
+            created_at: row.get::<_, Option<i64>>(12).unwrap_or(None),
+            modified_at: row.get::<_, Option<i64>>(13).unwrap_or(None),
+            notes: row.get::<_, Option<String>>(14).unwrap_or(None),
+            is_pinned: Some(row.get::<_, i64>(15).unwrap_or(0) != 0),
             dir_size_calculated: Some(file_type != "directory"),
             is_reparse_point: Some(false),
         })
@@ -460,7 +475,7 @@ pub fn get_file_info(path: String) -> Result<FileInfo, AppError> {
         .to_string_lossy()
         .to_string();
 
-    let target_path = resolve_shortcut(&abs_path);
+    let (target_path, shortcut_args) = resolve_shortcut(&abs_path);
     let is_shortcut = target_path != abs_path;
     let p = Path::new(&target_path);
 
@@ -554,6 +569,7 @@ pub fn get_file_info(path: String) -> Result<FileInfo, AppError> {
         r#type: extension,
         icon,
         content,
+        args: shortcut_args,
         category: None,
         open_count: None,
         last_opened: None,
@@ -569,7 +585,11 @@ pub fn get_file_info(path: String) -> Result<FileInfo, AppError> {
 /// 使用 ShellExecuteW 以管理员权限（runas 动词）启动可执行文件，触发 UAC 提权。
 /// 用于启动那些清单中声明 requireAdministrator 的程序（CreateProcess 会返回 error 740）。
 #[cfg(target_os = "windows")]
-fn launch_exe_elevated(file: &str, dir: Option<&str>) -> Result<(), AppError> {
+fn launch_exe_elevated(
+    file: &str,
+    dir: Option<&str>,
+    args: Option<&str>,
+) -> Result<(), AppError> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use windows::core::PCWSTR;
@@ -587,13 +607,16 @@ fn launch_exe_elevated(file: &str, dir: Option<&str>) -> Result<(), AppError> {
     let verb = to_wide("runas");
     let file_w = to_wide(file);
     let dir_w = dir.map(to_wide);
+    let params_w = args.filter(|a| !a.trim().is_empty()).map(to_wide);
 
     let ret = unsafe {
         ShellExecuteW(
             HWND(0),
             PCWSTR(verb.as_ptr()),
             PCWSTR(file_w.as_ptr()),
-            PCWSTR::null(),
+            params_w
+                .as_ref()
+                .map_or(PCWSTR::null(), |p| PCWSTR(p.as_ptr())),
             dir_w
                 .as_ref()
                 .map_or(PCWSTR::null(), |d| PCWSTR(d.as_ptr())),
@@ -612,7 +635,7 @@ fn launch_exe_elevated(file: &str, dir: Option<&str>) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn open_path(path: String) -> Result<(), AppError> {
+pub fn open_path(path: String, args: Option<String>) -> Result<(), AppError> {
     let path = path.trim().to_string();
     if path.is_empty() {
         return Err(AppError::Other("path is empty".into()));
@@ -626,6 +649,8 @@ pub fn open_path(path: String) -> Result<(), AppError> {
 
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+
         let p = Path::new(&path);
         // 如果是可执行文件，设置工作目录为其所在文件夹并直接启动
         if p.is_file()
@@ -634,13 +659,20 @@ pub fn open_path(path: String) -> Result<(), AppError> {
         {
             if let Some(parent) = p.parent() {
                 let parent_str = parent.to_string_lossy().to_string();
-                match Command::new(&path).current_dir(parent).spawn() {
+                let args = args.filter(|a| !a.trim().is_empty());
+                let mut command = Command::new(&path);
+                command.current_dir(parent);
+                // raw_arg 原样拼接命令行参数，避免二次解析破坏引号（如 "com.kuaishou.nebula"）
+                if let Some(args) = &args {
+                    command.raw_arg(args);
+                }
+                match command.spawn() {
                     Ok(_) => return Ok(()),
                     Err(e) => {
                         // error 740 = ERROR_ELEVATION_REQUIRED：目标程序要求管理员权限，
                         // CreateProcess 无法提权，回退到 ShellExecute 的 runas 动词触发 UAC。
                         if e.raw_os_error() == Some(740) {
-                            return launch_exe_elevated(&path, Some(&parent_str));
+                            return launch_exe_elevated(&path, Some(&parent_str), args.as_deref());
                         }
                         return Err(AppError::Platform(format!("Failed to launch exe: {}", e)));
                     }
@@ -658,6 +690,7 @@ pub fn open_path(path: String) -> Result<(), AppError> {
 
     #[cfg(target_os = "macos")]
     {
+        let _ = args;
         Command::new("open")
             .arg(&path)
             .spawn()
@@ -667,6 +700,7 @@ pub fn open_path(path: String) -> Result<(), AppError> {
 
     #[cfg(all(unix, not(target_os = "macos")))]
     {
+        let _ = args;
         Command::new("xdg-open")
             .arg(&path)
             .spawn()
@@ -758,7 +792,7 @@ pub fn open_terminal(path: String) -> Result<(), AppError> {
     }
 
     let path = to_abs_path(&path)?;
-    let resolved_path = resolve_shortcut(&path);
+    let (resolved_path, _) = resolve_shortcut(&path);
     let p = Path::new(&resolved_path);
 
     if !p.exists() {
@@ -1275,6 +1309,92 @@ mod tests {
         assert!(validate_new_name("trailing ").is_err());
         assert!(validate_new_name("con.txt").is_err());
         assert!(validate_new_name("COM1").is_err());
+    }
+
+    #[cfg(target_os = "windows")]
+    fn create_test_shortcut(lnk: &Path, target: &Path, args: &str) {
+        use windows::core::{ComInterface, HSTRING, PCWSTR};
+        use windows::Win32::System::Com::{
+            CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile,
+            CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+        };
+        use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
+
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            let shell_link: IShellLinkW =
+                CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).unwrap();
+            shell_link
+                .SetPath(PCWSTR(
+                    HSTRING::from(target.to_string_lossy().as_ref()).as_ptr(),
+                ))
+                .unwrap();
+            shell_link
+                .SetArguments(PCWSTR(HSTRING::from(args).as_ptr()))
+                .unwrap();
+            let persist_file: IPersistFile = shell_link.cast().unwrap();
+            persist_file
+                .Save(
+                    PCWSTR(HSTRING::from(lnk.to_string_lossy().as_ref()).as_ptr()),
+                    true,
+                )
+                .unwrap();
+            CoUninitialize();
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_scan_keeps_same_target_with_different_args() {
+        let dir = unique_temp_dir("scan_args");
+        let target = std::env::current_exe().unwrap();
+        create_test_shortcut(
+            &dir.join("store.lnk"),
+            &target,
+            "--from \"2\" --launch-proc-name \"AndrowsStore.exe\"",
+        );
+        create_test_shortcut(
+            &dir.join("app.lnk"),
+            &target,
+            "--from \"2\" --launch-pkg-name \"com.kuaishou.nebula\"",
+        );
+
+        let mut results = Vec::new();
+        let mut seen_paths = std::collections::HashSet::new();
+        scan_dir_recursive(&dir, &mut results, &mut seen_paths).unwrap();
+
+        assert_eq!(results.len(), 2, "两个不同参数的快捷方式都应保留");
+        assert!(results
+            .iter()
+            .any(|f| f.args.as_deref() == Some("--from \"2\" --launch-proc-name \"AndrowsStore.exe\"")));
+        assert!(results.iter().any(|f| f.args.as_deref()
+            == Some("--from \"2\" --launch-pkg-name \"com.kuaishou.nebula\"")));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_open_path_passes_arguments_to_executable() {
+        let dir = unique_temp_dir("launch_args");
+        let marker = dir.join("marker.txt");
+        let comspec = std::env::var("COMSPEC")
+            .unwrap_or_else(|_| "C:\\Windows\\System32\\cmd.exe".to_string());
+        let args = format!("/c echo launched> \"{}\"", marker.display());
+
+        open_path(comspec, Some(args)).unwrap();
+
+        let mut content = String::new();
+        for _ in 0..100 {
+            if let Ok(value) = fs::read_to_string(&marker) {
+                content = value;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert_eq!(content.trim(), "launched");
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -21,8 +21,8 @@ pub fn check_paths_exist(paths: Vec<String>) -> Result<Vec<bool>, AppError> {
 }
 
 #[tauri::command]
-pub fn open_path(path: String) -> Result<(), AppError> {
-    services::file_service::open_path(path)
+pub fn open_path(path: String, args: Option<String>) -> Result<(), AppError> {
+    services::file_service::open_path(path, args)
 }
 
 #[tauri::command]

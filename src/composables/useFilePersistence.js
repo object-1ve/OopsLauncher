@@ -88,7 +88,8 @@ const saveFiles = async () => {
       for (const [categoryId, categoryFiles] of Object.entries(filesByCategory.value)) {
         for (const file of categoryFiles) {
           const normalizedPath = normalizePathKey(file.path)
-          const dedupeKey = `${categoryId}::${normalizedPath}`
+          // 同一 exe 配不同参数是不同的启动项（如腾讯应用宝与安卓应用），必须参与去重
+          const dedupeKey = `${categoryId}::${normalizedPath}::${file.args || ''}`
           if (!normalizedPath || seenCategoryPath.has(dedupeKey)) {
             continue
           }
@@ -116,6 +117,7 @@ const saveFiles = async () => {
             type: String(file.type || ''),
             icon: String(file.icon || ''),
             content: file.content || null,
+            args: file.args || null,
             category: String(categoryId || 'main'),
             openCount: Number(file.openCount ?? file.open_count ?? 0),
             lastOpened: file.lastOpened ?? file.last_opened ?? null,
@@ -257,7 +259,7 @@ const loadFiles = async () => {
           notes: notes || '',
           isPinned: !!isPinned
         }
-        const dedupeKey = `${targetId}::${normalizePathKey(fileWithFormattedFields.path)}`
+        const dedupeKey = `${targetId}::${normalizePathKey(fileWithFormattedFields.path)}::${fileWithFormattedFields.args || ''}`
         if (seenCategoryPath.has(dedupeKey)) {
           continue
         }

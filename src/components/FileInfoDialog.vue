@@ -64,6 +64,16 @@
           />
         </el-form-item>
 
+        <!-- 启动参数（快捷方式/可执行文件） -->
+        <el-form-item v-if="editForm.type === 'exe' || editForm.args" label="启动参数">
+          <el-input
+            v-model="editForm.args"
+            placeholder='例如：--from "2" --launch-pkg-name "com.kuaishou.nebula"'
+            type="textarea"
+            :rows="3"
+          />
+        </el-form-item>
+
         <!-- 备注 -->
         <el-form-item label="备注">
           <el-input
@@ -117,6 +127,7 @@ const editForm = ref({
   size: "",
   type: "",
   openCount: 0,
+  args: "",
   notes: "",
 });
 
@@ -130,6 +141,7 @@ watch(() => props.currentFile, (newFile) => {
       size: formatFileSize(newFile.size || 0),
       type: newFile.type || getFileType(newFile.name || ""),
       openCount: newFile.openCount || 0,
+      args: newFile.args || "",
       notes: newFile.notes || "",
     };
   }
@@ -157,9 +169,11 @@ const getFileType = (fileName) => {
 // 方法：处理保存
 const handleSave = () => {
   if (props.currentFile) {
+    const args = editForm.value.args.trim();
     const updatedFile = {
       ...props.currentFile,
       displayName: editForm.value.displayName || props.currentFile.name,
+      args,
       notes: editForm.value.notes,
     };
     emit("save", updatedFile);

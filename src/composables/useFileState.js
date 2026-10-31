@@ -26,10 +26,13 @@ export const normalizePathKey = (rawPath) => {
   return hasWindowsStyle ? normalizedSlashes.toLowerCase() : normalizedSlashes
 }
 
-export const categoryHasSameFile = (categoryFiles = [], filePath = '') => {
+export const categoryHasSameFile = (categoryFiles = [], filePath = '', fileArgs = '') => {
   const targetKey = normalizePathKey(filePath)
   if (!targetKey) return false
-  return categoryFiles.some(f => normalizePathKey(f.path) === targetKey)
+  const targetArgs = String(fileArgs || '')
+  return categoryFiles.some(
+    f => normalizePathKey(f.path) === targetKey && String(f.args || '') === targetArgs
+  )
 }
 
 export const getFileIcon = async (file) => {

@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 import {
   customCategories, dragTargetCategory, SPECIAL_CATEGORIES
 } from './useFileState'
-import { moveFileToCategory } from './useFileActions'
+import { moveFileToCategory, copyFileToCategory } from './useFileActions'
 
 // Windows 上 Tauri 的 dragDropEnabled（外部文件拖入所需）会禁用 WebView2 的 HTML5 拖放，
 // 因此启动器图标改用指针事件实现拖拽，不依赖 dragstart/drop。
@@ -97,10 +97,15 @@ const onPointerUp = async () => {
     return
   }
 
-  const result = await moveFileToCategory(file, targetId)
+  // 开始菜单等特殊分类是自动生成/聚合视图，拖到自定义分类时复制而不是移动，
+  // 避免从开始菜单里“消失”（刷新后又会回来）。
+  const copyOnly = SPECIAL_TARGETS.has(file.category)
+  const result = copyOnly
+    ? await copyFileToCategory(file, targetId)
+    : await moveFileToCategory(file, targetId)
   const category = customCategories.value.find(c => c.id === targetId)
   if (result.success) {
-    ElMessage.success(`已移动到「${category?.name || targetId}」`)
+    ElMessage.success(`${copyOnly ? '已复制' : '已移动'}到「${category?.name || targetId}」`)
   } else if (result.reason === 'duplicate') {
     ElMessage.warning(`「${category?.name || targetId}」中已存在此文件`)
   } else if (result.reason === 'cannot_move_special_category_file') {
