@@ -16,6 +16,12 @@ const SPECIAL_TARGETS = new Set([
   SPECIAL_CATEGORIES.START_MENU
 ])
 
+// 只有开始菜单这种自动生成的特殊分类需要复制；「全部文件」仍是聚合视图，
+// 从里面拖拽等同于操作文件原本所在的分类（移动）。
+const COPY_SOURCE_CATEGORIES = new Set([
+  SPECIAL_CATEGORIES.START_MENU
+])
+
 export const iconDragState = reactive({
   active: false,
   file: null,
@@ -98,8 +104,8 @@ const onPointerUp = async () => {
     return
   }
 
-  // 特殊分类（全部文件/开始菜单）是聚合或自动生成视图，拖到自定义分类时一律复制；
-  // 只有从自定义分类拖出才是移动。
+  // 开始菜单是自动生成视图，拖到自定义分类时复制；「全部文件」是聚合视图，
+  // 拖拽仍按文件原本所在的分类移动。
   let copyOnly = sourceSpecial || SPECIAL_TARGETS.has(file.category)
   let result = copyOnly
     ? await copyFileToCategory(file, targetId)
@@ -126,7 +132,7 @@ export const startIconDrag = (file, event) => {
     startY: event.clientY,
     pointerId: event.pointerId,
     element: event.currentTarget,
-    sourceSpecial: SPECIAL_TARGETS.has(currentCategory.value)
+    sourceSpecial: COPY_SOURCE_CATEGORIES.has(currentCategory.value)
   }
   window.addEventListener('pointermove', onPointerMove, true)
   window.addEventListener('pointerup', onPointerUp, true)
